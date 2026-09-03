@@ -420,7 +420,7 @@ function isMovementInput(input: FighterInput): boolean {
 }
 
 /** Frames a CPU keeps the stick held after choosing an attack, so kicks commit (a roundhouse needs fire held). */
-const CPU_ATTACK_HOLD = 12;
+const CPU_ATTACK_HOLD = 9; // shorter than the 10-frame about-face so a turn never re-triggers
 
 function cpuInput(state: GameState, index: 0 | 1, me: Fighter, foe: Fighter): FighterInput {
   // Decide every N frames; in between keep the joystick where it was, like a human would
@@ -428,7 +428,9 @@ function cpuInput(state: GameState, index: 0 | 1, me: Fighter, foe: Fighter): Fi
   if ((state.frameCount + index * 7) % profile.reaction !== 0) {
     return state.frameCount < state.cpuHoldUntil[index] ? state.cpuHold[index] : NEUTRAL_INPUT;
   }
-  const decision = cpuDecision(state, me, foe, profile);
+  // Decisions are facing-relative (forward/back); convert to joystick (screen) directions
+  const relative = cpuDecision(state, me, foe, profile);
+  const decision: FighterInput = { dir: { x: (relative.dir.x * me.facing) as -1 | 0 | 1, y: relative.dir.y }, fire: relative.fire };
   state.cpuHold[index] = decision;
   state.cpuHoldUntil[index] = state.frameCount + (isMovementInput(decision) ? profile.reaction : CPU_ATTACK_HOLD);
   return decision;
@@ -481,7 +483,7 @@ function cpuDecision(state: GameState, me: Fighter, foe: Fighter, profile: AiPro
     return { dir: { x: 0, y: -1 }, fire: true }; // flying kick
   }
   if (rng() < profile.advance) {
-    return rng() < 0.1 ? { dir: { x: -1, y: -1 }, fire: false } : { dir: { x: 1, y: 0 }, fire: false };
+    return rng() < 0.1 ? { dir: { x: -1, y: -1 }, fire: false } /* forward somersault */ : { dir: { x: 1, y: 0 }, fire: false };
   }
   return NEUTRAL_INPUT;
 }
