@@ -96,7 +96,8 @@ On black-panther the container is defined in the apps-stack docker-compose (see 
 │   │   └── ui/                    # shadcn/ui components
 │   ├── lib/
 │   │   ├── fistEngine.ts          # Rules, moves, AI, scoring, bull round
-│   │   ├── fighterPoses.ts        # Skeleton key poses for every move
+│   │   ├── fighterSprites.ts      # The 44 original fighter poses (BBC Micro data)
+│   │   ├── fighterAnimation.ts    # Per-move sprite sequences from the original frame tables
 │   │   ├── fistRenderer.ts        # Arenas, sensei, fighters, bull, HUD
 │   │   └── fistAudio.ts           # Kiai, crack, thud, SID-style music
 │   └── hooks/
@@ -107,6 +108,6 @@ On black-panther the container is defined in the apps-stack docker-compose (see 
 
 ## Credits
 
-The Way of the Exploding Fist (1985) was designed by Gregg Barnett at Beam Software and published by Melbourne House. This is an unaffiliated fan tribute.
+The Way of the Exploding Fist (1985) was designed by Gregg Barnett at Beam Software and published by Melbourne House; the BBC Micro conversion was by Michael Simpson. The fighter sprites are decoded from the BBC Micro version using the [Level 7 disassembly](https://www.level7.org.uk/miscellany/the-way-of-the-exploding-fist-disassembly.txt) and remain the copyright of their original creators. This is an unaffiliated, non-commercial fan tribute.
 
 Built with [MKStack](https://soapbox.pub/mkstack).

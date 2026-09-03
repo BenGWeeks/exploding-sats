@@ -10,8 +10,11 @@ import {
   GROUND_Y, HUD_HEIGHT, WORLD_WIDTH, WORLD_HEIGHT, gradeName, isAttack,
   type GameState, type Fighter,
 } from './fistEngine';
-import { MOVES } from './fistEngine';
-import { buildSkeleton, poseFor, LIMB, type Point } from './fighterPoses';
+
+import { SPRITES, SPRITE_WIDTH, SPRITE_HEIGHT } from './fighterSprites';
+import { spriteFor } from './fighterAnimation';
+
+interface Point { x: number; y: number }
 
 // C64 palette (Pepto)
 export const C64 = {
@@ -35,7 +38,6 @@ export const C64 = {
 
 const SKIN = '#e6a985';
 const SKIN_SHADE = '#c98a66';
-const HAIR = '#000000';
 
 // ---------------------------------------------------------------------------
 // Backgrounds - cached per scene
@@ -262,71 +264,63 @@ function drawSensei(ctx: CanvasRenderingContext2D, x: number, y: number, scale: 
 }
 
 // ---------------------------------------------------------------------------
-// Fighters
+// Fighters - the original BBC Micro sprites, recoloured to the C64 gis
 // ---------------------------------------------------------------------------
 
-function limb(ctx: CanvasRenderingContext2D, a: Point, b: Point, width: number, colour: string) {
-  ctx.strokeStyle = colour;
-  ctx.lineWidth = width;
-  ctx.lineCap = 'round';
-  ctx.beginPath();
-  ctx.moveTo(a.x, a.y);
-  ctx.lineTo(b.x, b.y);
-  ctx.stroke();
-}
+/** A MODE 5 pixel is twice as wide as it is tall */
+const SPRITE_PX_W = 2;
+/** Horizontal centre of the standing body within the 36-pixel sprite, in world px */
+const SPRITE_ANCHOR_X = 24;
+/** The shadow row sits just below the ground line */
+const SPRITE_BOTTOM_OFFSET = 2;
 
-function dot(ctx: CanvasRenderingContext2D, p: Point, r: number, colour: string) {
-  ctx.fillStyle = colour;
-  ctx.beginPath();
-  ctx.arc(p.x, p.y, r, 0, Math.PI * 2);
-  ctx.fill();
+type Scheme = 'white' | 'red' | 'flash';
+
+const SCHEMES: Record<Scheme, [string, string, string]> = {
+  // gi, skin, hair/shadow
+  white: ['#f4f4f4', SKIN, C64.black],
+  red: ['#b93a2a', SKIN, C64.black],
+  flash: [C64.yellow, C64.white, C64.black],
+};
+
+const spriteCache = new Map<string, HTMLCanvasElement>();
+
+function spriteCanvas(index: number, scheme: Scheme): HTMLCanvasElement {
+  const key = `${index}:${scheme}`;
+  const cached = spriteCache.get(key);
+  if (cached) return cached;
+  const data = SPRITES[index] ?? SPRITES[0];
+  const canvas = document.createElement('canvas');
+  canvas.width = SPRITE_WIDTH * SPRITE_PX_W;
+  canvas.height = SPRITE_HEIGHT;
+  const ctx = canvas.getContext('2d')!;
+  const colours = SCHEMES[scheme];
+  for (let r = 0; r < data.rows.length; r++) {
+    const row = data.rows[r];
+    const y = data.top + r;
+    for (let x = 0; x < SPRITE_WIDTH; x++) {
+      const v = row.charCodeAt(x) - 48;
+      if (v === 0) continue;
+      ctx.fillStyle = colours[v - 1];
+      ctx.fillRect(x * SPRITE_PX_W, y, SPRITE_PX_W, 1);
+    }
+  }
+  spriteCache.set(key, canvas);
+  return canvas;
 }
 
 /** Draw a fighter with feet at (x, GROUND_Y - airY) */
 export function drawFighter(ctx: CanvasRenderingContext2D, f: Fighter, flash = false) {
-  const def = MOVES[f.move];
-  const progress = def.frames > 1 ? f.frame / def.frames : 0;
-  const pose = poseFor(f.move, progress);
-  const sk = buildSkeleton(pose);
-
-  const gi = flash ? C64.yellow : f.colour === 'white' ? C64.white : '#b93a2a';
-  const giShade = f.colour === 'white' ? C64.lightGrey : C64.red;
-  const belt = f.colour === 'white' ? C64.black : C64.black;
+  const anim = spriteFor(f.move, f.frame);
+  const scheme: Scheme = flash ? 'flash' : f.colour;
+  const image = spriteCanvas(anim.sprite, scheme);
+  const facing = anim.flip ? -f.facing : f.facing;
 
   ctx.save();
-  ctx.translate(Math.round(f.x), Math.round(GROUND_Y - f.airY));
-  ctx.scale(f.facing, -1); // fighter space is y-up, facing right
-
-  const toScreen = (p: Point): Point => p;
-
-  // Back arm and back leg first (further from the camera)
-  limb(ctx, toScreen(sk.shoulder), toScreen(sk.elbowB), 5, giShade);
-  limb(ctx, toScreen(sk.elbowB), toScreen(sk.handB), 4, giShade);
-  dot(ctx, toScreen(sk.handB), 2, SKIN_SHADE);
-  limb(ctx, toScreen(sk.hip), toScreen(sk.kneeB), 6.5, giShade);
-  limb(ctx, toScreen(sk.kneeB), toScreen(sk.footB), 5.5, giShade);
-  dot(ctx, toScreen(sk.footB), 2, SKIN_SHADE);
-
-  // Torso
-  limb(ctx, toScreen(sk.hip), toScreen(sk.neck), 11, gi);
-  // Belt
-  limb(ctx, { x: sk.hip.x - 5.5, y: sk.hip.y + 1 }, { x: sk.hip.x + 5.5, y: sk.hip.y + 1 }, 2.5, belt);
-  // Head
-  dot(ctx, toScreen(sk.headCentre), LIMB.headRadius, SKIN);
-  // Hair: dark cap on the top and back of the head, face left bare
-  dot(ctx, { x: sk.headCentre.x - 0.8, y: sk.headCentre.y + 1.2 }, LIMB.headRadius, HAIR);
-  dot(ctx, { x: sk.headCentre.x + 1.4, y: sk.headCentre.y - 1.0 }, LIMB.headRadius - 0.8, SKIN);
-  // Eye
-  dot(ctx, { x: sk.headCentre.x + 2.2, y: sk.headCentre.y + 0.5 }, 0.7, C64.black);
-
-  // Front leg and front arm
-  limb(ctx, toScreen(sk.hip), toScreen(sk.kneeF), 6.5, gi);
-  limb(ctx, toScreen(sk.kneeF), toScreen(sk.footF), 5.5, gi);
-  dot(ctx, toScreen(sk.footF), 2, SKIN);
-  limb(ctx, toScreen(sk.shoulder), toScreen(sk.elbowF), 5, gi);
-  limb(ctx, toScreen(sk.elbowF), toScreen(sk.handF), 4, gi);
-  dot(ctx, toScreen(sk.handF), 2.2, SKIN);
-
+  ctx.imageSmoothingEnabled = false;
+  ctx.translate(Math.round(f.x), Math.round(GROUND_Y - f.airY + SPRITE_BOTTOM_OFFSET - SPRITE_HEIGHT));
+  ctx.scale(facing, 1);
+  ctx.drawImage(image, -SPRITE_ANCHOR_X, 0);
   ctx.restore();
 }
 

@@ -18,8 +18,8 @@ export const WORLD_WIDTH = 320;
 export const WORLD_HEIGHT = 200;
 export const GROUND_Y = 172; // y of the fighters' feet
 export const HUD_HEIGHT = 50;
-export const ARENA_LEFT = 18;
-export const ARENA_RIGHT = WORLD_WIDTH - 18;
+export const ARENA_LEFT = 26;
+export const ARENA_RIGHT = WORLD_WIDTH - 26;
 export const START_X_P1 = 100;
 export const START_X_P2 = 220;
 
@@ -34,10 +34,10 @@ export const SCORE_TIME_BONUS_PER_SECOND = 100;
 export const SCORE_BULL_BONUS = 2000;
 export const SCORE_BULL_LOW_PUNCH_BONUS = 3000;
 
-export const FIGHTER_HALF_WIDTH = 8;
-export const STAND_HEIGHT = 48;
-export const CROUCH_HEIGHT = 30;
-export const WALK_SPEED = 0.9;
+export const FIGHTER_HALF_WIDTH = 14;
+export const STAND_HEIGHT = 52;
+export const CROUCH_HEIGHT = 38;
+export const WALK_SPEED = 1.1;
 export const GRAVITY = 0.30;
 export const JUMP_VELOCITY = 5.2;
 
@@ -126,26 +126,26 @@ export const MOVES: Record<MoveId, MoveDef> = {
   walk_back: { id: 'walk_back', frames: 24, loop: true, travel: -WALK_SPEED * 24, cancelable: true },
   crouch: { id: 'crouch', frames: 20, loop: true, cancelable: true },
   jump: { id: 'jump', frames: 36, launch: JUMP_VELOCITY },
-  somersault_forward: { id: 'somersault_forward', frames: 40, travel: 52, launch: 4.4, invulnerable: true },
-  somersault_back: { id: 'somersault_back', frames: 40, travel: -52, launch: 4.4, invulnerable: true },
+  somersault_forward: { id: 'somersault_forward', frames: 40, travel: 64, launch: 4.4, invulnerable: true },
+  somersault_back: { id: 'somersault_back', frames: 40, travel: -64, launch: 4.4, invulnerable: true },
   turn: { id: 'turn', frames: 10, flips: true },
   block_high: { id: 'block_high', frames: 18, invulnerable: true },
   block_low: { id: 'block_low', frames: 18, invulnerable: true },
   // Punches (no fire) - jab is the fastest move in the game
-  jab_punch: { id: 'jab_punch', frames: 16, activeFrom: 4, activeTo: 7, strike: { x: 22, y: -34, reach: 5 }, height: 'mid', value: 200, kiai: true },
-  high_punch: { id: 'high_punch', frames: 22, activeFrom: 7, activeTo: 11, strike: { x: 22, y: -42, reach: 5 }, height: 'high', value: 300, kiai: true },
-  low_punch: { id: 'low_punch', frames: 20, activeFrom: 6, activeTo: 10, strike: { x: 22, y: -22, reach: 5 }, height: 'low', value: 200, kiai: true },
+  jab_punch: { id: 'jab_punch', frames: 16, activeFrom: 4, activeTo: 7, strike: { x: 22, y: -37, reach: 6 }, height: 'mid', value: 200, kiai: true },
+  high_punch: { id: 'high_punch', frames: 22, activeFrom: 7, activeTo: 11, strike: { x: 22, y: -43, reach: 6 }, height: 'high', value: 300, kiai: true },
+  low_punch: { id: 'low_punch', frames: 20, activeFrom: 6, activeTo: 10, strike: { x: 37, y: -22, reach: 6 }, height: 'low', value: 200, kiai: true },
   // Kicks (fire held)
-  flying_kick: { id: 'flying_kick', frames: 46, activeFrom: 12, activeTo: 32, strike: { x: 28, y: -40, reach: 8 }, height: 'high', value: 800, travel: 64, launch: 3.4, kiai: true },
-  high_kick: { id: 'high_kick', frames: 30, activeFrom: 11, activeTo: 16, strike: { x: 26, y: -42, reach: 7 }, height: 'high', value: 600, kiai: true },
-  mid_kick: { id: 'mid_kick', frames: 28, activeFrom: 10, activeTo: 15, strike: { x: 28, y: -30, reach: 7 }, height: 'mid', value: 500, kiai: true },
-  jab_kick: { id: 'jab_kick', frames: 18, activeFrom: 5, activeTo: 8, strike: { x: 22, y: -26, reach: 6 }, height: 'mid', value: 300, kiai: true },
-  sweep: { id: 'sweep', frames: 32, activeFrom: 11, activeTo: 19, strike: { x: 24, y: -5, reach: 9 }, height: 'low', value: 400, unblockable: true, travel: 6, kiai: true },
-  back_sweep: { id: 'back_sweep', frames: 34, activeFrom: 12, activeTo: 20, strike: { x: -24, y: -5, reach: 9 }, height: 'low', value: 400, unblockable: true, kiai: true },
-  roundhouse: { id: 'roundhouse', frames: 44, activeFrom: 18, activeTo: 26, strike: { x: 24, y: -42, reach: 10 }, height: 'high', value: 800, travel: 10, flips: true, kiai: true, abortToTurnBefore: 8 },
-  high_back_kick: { id: 'high_back_kick', frames: 30, activeFrom: 11, activeTo: 16, strike: { x: -26, y: -42, reach: 7 }, height: 'high', value: 600, kiai: true },
+  flying_kick: { id: 'flying_kick', frames: 46, activeFrom: 12, activeTo: 32, strike: { x: 45, y: -44, reach: 8 }, height: 'high', value: 800, travel: 64, launch: 3.4, kiai: true },
+  high_kick: { id: 'high_kick', frames: 30, activeFrom: 11, activeTo: 16, strike: { x: 41, y: -48, reach: 7 }, height: 'high', value: 600, kiai: true },
+  mid_kick: { id: 'mid_kick', frames: 28, activeFrom: 10, activeTo: 15, strike: { x: 47, y: -31, reach: 7 }, height: 'mid', value: 500, kiai: true },
+  jab_kick: { id: 'jab_kick', frames: 18, activeFrom: 5, activeTo: 8, strike: { x: 37, y: -14, reach: 6 }, height: 'mid', value: 300, kiai: true },
+  sweep: { id: 'sweep', frames: 32, activeFrom: 11, activeTo: 19, strike: { x: 45, y: -4, reach: 9 }, height: 'low', value: 400, unblockable: true, travel: 6, kiai: true },
+  back_sweep: { id: 'back_sweep', frames: 34, activeFrom: 12, activeTo: 20, strike: { x: -45, y: -4, reach: 9 }, height: 'low', value: 400, unblockable: true, kiai: true },
+  roundhouse: { id: 'roundhouse', frames: 44, activeFrom: 18, activeTo: 26, strike: { x: 47, y: -30, reach: 10 }, height: 'high', value: 800, travel: 10, flips: true, kiai: true, abortToTurnBefore: 8 },
+  high_back_kick: { id: 'high_back_kick', frames: 30, activeFrom: 11, activeTo: 16, strike: { x: -26, y: -44, reach: 8 }, height: 'high', value: 600, kiai: true },
   // Reactions
-  fall: { id: 'fall', frames: 44, travel: -26, invulnerable: true },
+  fall: { id: 'fall', frames: 44, travel: -36, invulnerable: true },
   lying: { id: 'lying', frames: 50, invulnerable: true },
   getup: { id: 'getup', frames: 30, invulnerable: true },
   bow: { id: 'bow', frames: 80, invulnerable: true },
@@ -351,7 +351,7 @@ function isBusy(f: Fighter): boolean {
 function hurtRange(f: Fighter): { top: number; bottom: number } | null {
   const def = MOVES[f.move];
   if (def.invulnerable) return null;
-  const crouched = f.move === 'crouch' || f.move === 'sweep' || f.move === 'back_sweep' || f.move === 'low_punch' || f.move === 'jab_kick';
+  const crouched = f.move === 'crouch' || f.move === 'sweep' || f.move === 'back_sweep' || f.move === 'low_punch';
   const height = crouched ? CROUCH_HEIGHT : STAND_HEIGHT;
   return { top: -(height + f.airY), bottom: -f.airY };
 }

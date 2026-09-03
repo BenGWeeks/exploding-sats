@@ -37,8 +37,9 @@ Always run `npm run test` after making changes.
 
 ### Game
 - `src/lib/fistEngine.ts` - pure, deterministic rules engine stepped at 60 Hz. Move table (`MOVES`), the C64 control chart (`moveForInput`), hit judging, knockdowns, bout/grade progression, CPU AI (`aiProfile`, `cpuInput`), bull bonus round and the attract-mode demo. Emits `GameEvent`s for audio/UI.
-- `src/lib/fighterPoses.ts` - fighters are articulated skeletons; each move is a list of key poses interpolated by progress.
-- `src/lib/fistRenderer.ts` - draws the 320x200 world in the C64 palette: four cached arenas, the sensei judge, fighters, bull and HUD icons. `hudTexts` returns the HUD text layout.
+- `src/lib/fighterSprites.ts` - the 44 original fighter poses decoded from the BBC Micro version's sprite tables (36x72, 2-bit MODE 5 pixels, drawn 2 px wide). Generated data: do not hand-edit.
+- `src/lib/fighterAnimation.ts` - per-move sprite sequences and timings following the original frame tables; every sequence must sum to the move's `frames` (tested).
+- `src/lib/fistRenderer.ts` - draws the 320x200 world in the C64 palette: four cached arenas, the sensei judge, the fighters (sprites recoloured to white/red gis, cached per colour scheme), bull and HUD icons. `hudTexts` returns the HUD text layout.
 - `src/components/FistCanvas.tsx` - renders the world offscreen and scales it 3x with pixel snapping, drawing HUD text on top. Reads engine state from a ref every frame (no React re-render per frame).
 - `src/lib/fistAudio.ts` - Web Audio synthesis: kiai, crack, thud, block, points, music.
 - `src/pages/Game.tsx` - game loop (fixed step), keyboard/gamepad/touch input, payment flow, leaderboard, share, dialogs.
@@ -65,7 +66,8 @@ QueryClientProvider -> AppProvider -> NostrProvider -> NWCProvider -> UnheadProv
 - Two bouts per grade; promotion after winning both; a lost bout ends the match. Four arenas cycle; bull bonus after the fourth. 2-player: four bouts, highest total wins.
 
 ## Testing
-- Vitest with jsdom. Engine tests in `src/lib/fistEngine.test.ts` cover the control chart, hits, blocks, evasions, knockdown reset, bout/grade flow and the bull.
+- Vitest with jsdom. Engine tests in `src/lib/fistEngine.test.ts` cover the control chart, hits, blocks, evasions, knockdown reset, bout/grade flow and the bull; `fighterAnimation.test.ts` checks sprite data and sequence lengths.
+- `scripts/capture-gameplay.js` drives a free-play match with Playwright and screenshots every move (set `PLAYWRIGHT_DIR` to a project with Playwright installed; falls back to the Edge binary).
 - Wrap components in `TestApp` for required providers.
 
 ## Production
