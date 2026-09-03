@@ -1,0 +1,24 @@
+= Troubleshooting
+
+Known issues and their solutions.
+
+[cols="1,2", options="header"]
+|===
+| Problem | Solution
+
+| Game lags every few seconds in Microsoft Edge on Linux
+| Edge may be using software compositing instead of GPU acceleration. Go to `edge://flags`, search for "GPU rasterization", and set it to *Enabled*. Restart Edge.
+
+| Leaderboard shows "No scores yet" when accessing via IP address (172.16.x.x, 192.168.x.x)
+| Some browsers (especially Edge) block WebSocket connections to external servers when the page is served from IP addresses. Access via `localhost:8088` instead.
+
+| Nostr extension not found when accessing via IP address
+| NIP-07 browser extensions like Nos2x only inject `window.nostr` on whitelisted origins. IP addresses are typically not whitelisted. Access via `localhost:8088` instead.
+
+| Can't use Nostr extension on mobile
+| Mobile Chrome doesn't support extensions. Use *Edge* (Android), *Kiwi Browser* (Android), or *Firefox* (Android) which support Chrome/Firefox extensions. On iOS, extension support is limited to Safari Web Extensions.
+
+| manifest.json returns 403 Forbidden in Docker
+| File permissions issue. Files in `public/` may have restrictive permissions (e.g., `600`) that nginx can't read. The Dockerfile includes a `chmod` to fix this, but if you see 403 errors, check file permissions locally and rebuild the image.
+
+|===

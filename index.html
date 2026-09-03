@@ -1,0 +1,50 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+    <meta http-equiv="content-security-policy" content="default-src 'none'; script-src 'self'; style-src 'self' 'unsafe-inline'; frame-src 'self' https:; font-src 'self'; base-uri 'self'; manifest-src 'self'; connect-src 'self' blob: https: wss:; img-src 'self' data: blob: https:; media-src 'self' https:">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="apple-touch-icon" sizes="180x180" href="/apple-touch-icon.png">
+    <link rel="manifest" href="/manifest.json">
+
+    <!-- PWA support -->
+    <meta name="mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Exploding Sats">
+    <meta name="theme-color" content="#000000">
+
+    <title>Way of the Exploding Sats</title>
+
+    <!-- Prevent white flash on load - black background for safe areas -->
+    <style>
+      html, body, #root {
+        background-color: #000 !important;
+        min-height: 100vh;
+        min-height: 100dvh;
+        margin: 0;
+        padding: 0;
+      }
+    </style>
+
+    <!-- Open Graph / Social Preview -->
+    <meta name="description" content="A faithful tribute to the 1985 karate classic Way of the Exploding Fist. Pay 21 sats to play. Publish your high scores to the decentralized Nostr leaderboard.">
+    <meta property="og:type" content="website">
+    <meta property="og:url" content="https://www.explodingsats.com/">
+    <meta property="og:title" content="Way of the Exploding Sats - Bitcoin Karate Game">
+    <meta property="og:description" content="A faithful tribute to the 1985 karate classic Way of the Exploding Fist. Pay 21 sats to play. Publish your high scores to the decentralized Nostr leaderboard.">
+    <meta property="og:image" content="https://www.explodingsats.com/og-image.png">
+
+    <!-- Twitter -->
+    <meta name="twitter:card" content="summary_large_image">
+    <meta name="twitter:url" content="https://www.explodingsats.com/">
+    <meta name="twitter:title" content="Way of the Exploding Sats - Bitcoin Karate Game">
+    <meta name="twitter:description" content="A faithful tribute to the 1985 karate classic Way of the Exploding Fist. Pay 21 sats to play. Publish your high scores to the decentralized Nostr leaderboard.">
+    <meta name="twitter:image" content="https://www.explodingsats.com/og-image.png">
+  </head>
+  <body>
+    <div id="root"></div>
+    <script type="module" src="/src/main.tsx"></script>
+  </body>
+</html>

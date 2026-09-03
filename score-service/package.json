@@ -1,0 +1,14 @@
+{
+  "name": "exploding-sats-score-service",
+  "version": "1.0.0",
+  "description": "Score signing service for Exploding Sats (Gamestr kind 30762)",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "dependencies": {
+    "nostr-tools": "^2.10.4",
+    "ws": "^8.18.3"
+  }
+}
