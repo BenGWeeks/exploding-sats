@@ -238,6 +238,20 @@ describe('bout flow', () => {
     expect(state.bull).toBeNull();
   });
 
+  it('emits the game over event once, not every frame', () => {
+    const state = skipIntro(createInitialState({ seed: 1 }));
+    state.fighters[1].points = 1;
+    state.timeLeft = 0.02;
+    let gameOverEvents = 0;
+    for (let i = 0; i < 600; i++) {
+      updateGame(state, IDLE);
+      gameOverEvents += state.events.filter((e) => e.type === 'game_over').length;
+    }
+    expect(state.gameOver).toBe(true);
+    expect(gameOverEvents).toBe(1);
+    expect(state.events).toEqual([]);
+  });
+
   it('the CPU gets sharper with every Dan', () => {
     const novice = aiProfile(0);
     const master = aiProfile(10);

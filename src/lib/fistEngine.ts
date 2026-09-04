@@ -724,8 +724,9 @@ function updateBull(state: GameState) {
 // ---------------------------------------------------------------------------
 
 export function updateGame(state: GameState, inputs: [FighterInput, FighterInput]): GameState {
-  if (state.isPaused || state.gameOver) return state;
+  // Clear last frame's events first, so nothing is replayed while paused or after the match
   state.events = [];
+  if (state.isPaused || state.gameOver) return state;
   state.frameCount++;
   if (state.judgeSignal > 0) state.judgeSignal--;
 
