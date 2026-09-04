@@ -95,10 +95,19 @@ function torii(ctx: CanvasRenderingContext2D, x: number, base: number, colour: s
 }
 
 function tree(ctx: CanvasRenderingContext2D, x: number, base: number, size: number, leaf: string) {
+  // Trunk with a fork, then a round blossom canopy of overlapping circles
   rect(ctx, x - 1, base - size, 3, size, C64.brown);
-  rect(ctx, x - size * 0.6, base - size - 6, size * 1.2, 8, leaf);
-  rect(ctx, x - size * 0.4, base - size - 10, size * 0.8, 6, leaf);
-  rect(ctx, x - size * 0.5, base - size + 2, size, 4, leaf);
+  rect(ctx, x - 4, base - size + 2, 4, 2, C64.brown);
+  rect(ctx, x + 2, base - size + 4, 4, 2, C64.brown);
+  ctx.fillStyle = leaf;
+  for (const [dx, dy, r] of [[0, -size - 4, size * 0.55], [-size * 0.45, -size, size * 0.42], [size * 0.45, -size + 1, size * 0.42], [0, -size + 3, size * 0.4]]) {
+    ctx.beginPath(); ctx.arc(x + dx, base + dy, r, 0, Math.PI * 2); ctx.fill();
+  }
+  // a few darker blossoms
+  ctx.fillStyle = C64.red;
+  for (const [dx, dy] of [[-size * 0.3, -size - 3], [size * 0.25, -size - 6], [0, -size + 2], [size * 0.5, -size + 4]]) {
+    rect(ctx, x + dx, base + dy, 2, 2, C64.red);
+  }
 }
 
 function drawScene(ctx: CanvasRenderingContext2D, scene: number) {
@@ -129,7 +138,7 @@ function drawScene(ctx: CanvasRenderingContext2D, scene: number) {
       for (let i = 0; i < 6; i++) rect(ctx, 208 + i * 12, horizon + 4 + Math.abs(i - 2.5) * 3, 2, 8, C64.red);
       pagoda(ctx, 48, horizon + 8, 40, 3);
       torii(ctx, 160, horizon + 14, C64.grey);
-      tree(ctx, 120, horizon + 6, 14, C64.lightRed);
+      tree(ctx, 108, horizon + 4, 16, C64.lightRed);
       break;
     }
     case 1: {

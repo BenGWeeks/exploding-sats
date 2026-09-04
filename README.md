@@ -20,11 +20,11 @@ Pay 21 sats to fight. Publish your grade and score to the decentralized leaderbo
 ## How to Play
 
 1. **Pay to fight** - click "Pay 21 sats to fight" and pay with your Lightning wallet.
-2. **Move** - arrow keys are the joystick. `Space`, `Shift` or `Ctrl` is fire. Gamepads work (stick or D-pad plus any button). On touch devices a virtual joystick and fire button appear.
+2. **Move** - the original C64 keys: `Q W E / A D / Z X C` are the eight joystick directions and left `Shift` is fire (arrow keys and `Space` also work). Gamepads work (stick or D-pad plus any button). On touch devices a virtual joystick and fire button appear.
 3. **Fight** - see the MOVES dialog in-game for the full chart. Sweeps can't be blocked, so jump them. Duck the flying kick. Hold back to block.
 4. **Compete** - login with Nostr and save your score to the leaderboard.
 
-Player 2 uses `W A S D` and `F`/`G` for fire.
+Player 2 uses the original's second layout: `P [ ] / L ' / , . /` with right `Shift` (or `Enter`) as fire (the C64 keys were `P @ * / L ; / , . /`).
 
 ## Tech Stack
 

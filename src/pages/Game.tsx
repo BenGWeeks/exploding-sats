@@ -57,24 +57,37 @@ const RECIPIENT_LIGHTNING_ADDRESS = import.meta.env.VITE_LIGHTNING_ADDRESS || 's
 const LNBITS_URL = import.meta.env.VITE_LNBITS_URL || '/lnbits';
 const LNBITS_INVOICE_KEY = import.meta.env.VITE_LNBITS_INVOICE_KEY || '';
 
-// Keyboard: arrows = joystick, Space / Shift / Ctrl = fire (player 1); WASD + F/G (player 2)
-const P1_KEYS: Record<string, keyof KeyState> = {
+// Keyboard, matching the C64 original: a 3x3 letter grid is the joystick and SHIFT is fire.
+// Player 1: Q W E / A D / Z X C (or the arrow keys), fire = left Shift, Space or Ctrl.
+// Player 2: P [ ] / L ' / , . / (the C64's P @ * / L ; / , . /), fire = right Shift or Enter.
+// Keyed by KeyboardEvent.code so the layout is the same whatever the keyboard language.
+type KeyRole = 'up' | 'down' | 'left' | 'right' | 'upLeft' | 'upRight' | 'downLeft' | 'downRight' | 'fire';
+const P1_KEYS: Record<string, KeyRole> = {
   ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right',
-  ' ': 'fire', Shift: 'fire', Control: 'fire',
+  KeyQ: 'upLeft', KeyW: 'up', KeyE: 'upRight',
+  KeyA: 'left', KeyD: 'right',
+  KeyZ: 'downLeft', KeyX: 'down', KeyC: 'downRight',
+  Space: 'fire', ShiftLeft: 'fire', ControlLeft: 'fire', ControlRight: 'fire',
 };
-const P2_KEYS: Record<string, keyof KeyState> = {
-  w: 'up', s: 'down', a: 'left', d: 'right', W: 'up', S: 'down', A: 'left', D: 'right',
-  f: 'fire', g: 'fire', F: 'fire', G: 'fire',
+const P2_KEYS: Record<string, KeyRole> = {
+  KeyP: 'upLeft', BracketLeft: 'up', BracketRight: 'upRight',
+  KeyL: 'left', Quote: 'right',
+  Comma: 'downLeft', Period: 'down', Slash: 'downRight',
+  ShiftRight: 'fire', Enter: 'fire', NumpadEnter: 'fire',
 };
 
-interface KeyState { up: boolean; down: boolean; left: boolean; right: boolean; fire: boolean }
-const emptyKeys = (): KeyState => ({ up: false, down: false, left: false, right: false, fire: false });
+type KeyState = Record<KeyRole, boolean>;
+const emptyKeys = (): KeyState => ({ up: false, down: false, left: false, right: false, upLeft: false, upRight: false, downLeft: false, downRight: false, fire: false });
 
 function keysToInput(k: KeyState): FighterInput {
+  const left = k.left || k.upLeft || k.downLeft;
+  const right = k.right || k.upRight || k.downRight;
+  const up = k.up || k.upLeft || k.upRight;
+  const down = k.down || k.downLeft || k.downRight;
   return {
     dir: {
-      x: k.left && !k.right ? -1 : k.right && !k.left ? 1 : 0,
-      y: k.up && !k.down ? -1 : k.down && !k.up ? 1 : 0,
+      x: left && !right ? -1 : right && !left ? 1 : 0,
+      y: up && !down ? -1 : down && !up ? 1 : 0,
     },
     fire: k.fire,
   };
@@ -389,15 +402,15 @@ export function Game() {
         return;
       }
 
-      const p1 = P1_KEYS[e.key];
-      const p2 = P2_KEYS[e.key];
+      const p1 = P1_KEYS[e.code];
+      const p2 = P2_KEYS[e.code];
       if (p1) { e.preventDefault(); p1KeysRef.current[p1] = true; }
       if (p2 && twoPlayer) { e.preventDefault(); p2KeysRef.current[p2] = true; }
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
-      const p1 = P1_KEYS[e.key];
-      const p2 = P2_KEYS[e.key];
+      const p1 = P1_KEYS[e.code];
+      const p2 = P2_KEYS[e.code];
       if (p1) p1KeysRef.current[p1] = false;
       if (p2) p2KeysRef.current[p2] = false;
     };
@@ -829,7 +842,7 @@ export function Game() {
                     variant="outline"
                     size="sm"
                     onClick={() => setTwoPlayer(false)}
-                    className={`${!twoPlayer ? 'bg-amber-500 text-black' : ''} ${outlineBtn} text-base px-4`}
+                    className={`text-base px-4 font-bold ${!twoPlayer ? 'bg-amber-500 border-amber-500 text-black hover:bg-amber-400 hover:text-black' : outlineBtn}`}
                   >
                     <User className="mr-1 h-4 w-4" /> 1 PLAYER
                   </Button>
@@ -837,7 +850,7 @@ export function Game() {
                     variant="outline"
                     size="sm"
                     onClick={() => setTwoPlayer(true)}
-                    className={`${twoPlayer ? 'bg-amber-500 text-black' : ''} ${outlineBtn} text-base px-4`}
+                    className={`text-base px-4 font-bold ${twoPlayer ? 'bg-amber-500 border-amber-500 text-black hover:bg-amber-400 hover:text-black' : outlineBtn}`}
                   >
                     <Users className="mr-1 h-4 w-4" /> 2 PLAYER
                   </Button>
@@ -952,7 +965,7 @@ export function Game() {
       {!isMobile && (
         <div className="relative z-10 bg-black border-t-2 border-amber-500 text-center text-amber-600 px-6 py-2 text-lg">
           {hasStarted ? (
-            <span>ARROWS: JOYSTICK | SPACE / SHIFT: FIRE (KICKS) | ESC: PAUSE{twoPlayer ? ' | P2: WASD + F' : ''}</span>
+            <span>Q W E / A D / Z X C OR ARROWS: JOYSTICK | LEFT SHIFT / SPACE: FIRE | ESC: PAUSE{twoPlayer ? " | P2: P [ ] / L ' / , . / + RIGHT SHIFT" : ''}</span>
           ) : (
             <span>A TRIBUTE TO THE WAY OF THE EXPLODING FIST (1985) • POWERED BY LIGHTNING ⚡</span>
           )}
@@ -1014,20 +1027,20 @@ export function Game() {
           <div className={`text-amber-200 ${isMobile ? 'space-y-2 text-sm' : 'space-y-4 text-lg'}`}>
             <p>Pay 21 sats to fight. Every clean blow knocks your opponent down for a full yin-yang; a scrappy one earns half. First to two full points wins the bout. Win two bouts to be graded up a Dan and move to a new arena. Lose a bout and the match is over. Remaining seconds pay 100 points each.</p>
             <div className="grid grid-cols-2 gap-x-6 gap-y-1 font-mono">
-              <div className="text-amber-400 font-bold col-span-2 border-b border-amber-700 pb-1">JOYSTICK ONLY (ARROWS)</div>
+              <div className="text-amber-400 font-bold col-span-2 border-b border-amber-700 pb-1">JOYSTICK ONLY (Q W E / A D / Z X C, OR ARROWS)</div>
               <span>▲ Jump</span><span>▼ Crouch</span>
               <span>▶ Walk forward</span><span>◀ Walk back / block</span>
               <span>◤ Forward somersault</span><span>◣ Backward somersault</span>
               <span>◥ High punch</span><span>◢ Jab punch</span>
               <span className="col-span-2">▼ then ◢ Low punch (from a crouch)</span>
-              <div className="text-amber-400 font-bold col-span-2 border-b border-amber-700 pb-1 mt-2">WITH FIRE (SPACE / SHIFT)</div>
+              <div className="text-amber-400 font-bold col-span-2 border-b border-amber-700 pb-1 mt-2">WITH FIRE (LEFT SHIFT / SPACE)</div>
               <span>▲ Flying kick</span><span>◥ High kick</span>
               <span>▶ Mid kick</span><span>◢ Short jab kick</span>
               <span>▼ Forward sweep</span><span>◣ Backward sweep</span>
               <span>◀ Roundhouse (hold)</span><span>◀ About-face (release early)</span>
               <span>◤ High back kick</span><span>FIRE alone: about-face</span>
             </div>
-            <p className="text-amber-500 text-base">Directions are relative to the way you face. Sweeps can't be blocked - jump them. Duck the flying kick. Gamepads work too: stick or D-pad plus any button. After the fourth arena a bull charges in: somersault over it, or stop it with a low punch on the nose.</p>
+            <p className="text-amber-500 text-base">The keys are the C64 original's: the letter grid is the joystick, Shift is fire. Player 2 uses P [ ] / L ' / , . / with right Shift. Directions are relative to the way you face. Sweeps can't be blocked - jump them. Duck the flying kick. Gamepads work too: stick or D-pad plus any button. After the fourth arena a bull charges in: somersault over it, or stop it with a low punch on the nose.</p>
           </div>
         </DialogContent>
       </Dialog>
