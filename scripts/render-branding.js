@@ -38,13 +38,15 @@ async function main() {
   const executablePath = process.env.BROWSER_PATH || ['/opt/microsoft/msedge/msedge', '/usr/bin/chromium', '/usr/bin/google-chrome'].find((p) => existsSync(p));
   const browser = await chromium.launch(executablePath ? { executablePath } : {});
 
-  // 1. Gameplay screenshot: start a free game and catch a high kick landing
+  // 1. Gameplay screenshot: a two-player free game (the second fighter stands still),
+  //    walk in and catch player one's high kick as it lands
   const game = await browser.newPage({ viewport: { width: 1400, height: 900 } });
   console.log(`[info] opening ${baseUrl}`);
   await game.goto(baseUrl, { waitUntil: 'networkidle' });
+  await game.getByRole('button', { name: /2 PLAYER/i }).click();
   await game.getByRole('button', { name: /TRY FREE/i }).click();
   await game.waitForTimeout(1900); // bow
-  await game.keyboard.down('ArrowRight'); await game.waitForTimeout(900); await game.keyboard.up('ArrowRight');
+  await game.keyboard.down('ArrowRight'); await game.waitForTimeout(1500); await game.keyboard.up('ArrowRight');
   await game.waitForTimeout(150);
   await game.keyboard.down('Space'); await game.keyboard.down('ArrowUp'); await game.keyboard.down('ArrowRight');
   await game.waitForTimeout(230);
