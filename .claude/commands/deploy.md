@@ -45,7 +45,7 @@ If it shows "GAME_NSEC environment variable is required", the `.env` file in app
 ## 6. Verify Deployment
 Check both local and production are responding:
 ```bash
-curl -s -o /dev/null -w "%{http_code}" http://localhost:3004
+curl -s -o /dev/null -w "%{http_code}" http://localhost:3005
 curl -s -o /dev/null -w "%{http_code}" https://explodingsats.com
 ```
 Both should return 200.

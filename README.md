@@ -82,7 +82,7 @@ A single container serves the game (nginx) and the score signing service (Node.j
 docker build -t exploding-sats \
   --build-arg VITE_LNBITS_INVOICE_KEY=<invoice key> \
   --build-arg VITE_LIGHTNING_ADDRESS=your.game@your-lnbits-instance .
-docker run -d --name exploding-sats -p 3004:80 -e GAME_NSEC=nsec1... exploding-sats
+docker run -d --name exploding-sats -p 3005:80 -e GAME_NSEC=nsec1... exploding-sats
 ```
 
 On black-panther the container is defined in the apps-stack docker-compose (see CLAUDE.md).

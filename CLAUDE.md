@@ -73,20 +73,20 @@ QueryClientProvider -> AppProvider -> NostrProvider -> NWCProvider -> UnheadProv
 ## Production
 - **Site**: https://explodingsats.com (domain suggested; not yet registered)
 - **Local dev**: http://localhost:8088
-- **Container**: http://localhost:3004
+- **Container**: http://localhost:3005
 
 ### Docker Deployment (black-panther)
 
 **IMPORTANT**: Do NOT deploy to production unless the user explicitly asks. Test on localhost:8088 first.
 
-The container is defined in `/home/benweeks/GitHub/black-panther/apps-stack/docker-compose.yml` (service `exploding-sats`, port 3004). It needs `EXPLODING_SATS_GAME_NSEC` and `EXPLODING_SATS_LNBITS_INVOICE_KEY` in `apps-stack/.env`.
+The container is defined in `/home/benweeks/GitHub/black-panther/apps-stack/docker-compose.yml` (service `exploding-sats`, port 3005). It needs `EXPLODING_SATS_GAME_NSEC` and `EXPLODING_SATS_LNBITS_INVOICE_KEY` in `apps-stack/.env`.
 
 ```bash
 cd /home/benweeks/GitHub/black-panther/apps-stack
 docker compose build exploding-sats
 docker compose up -d exploding-sats
 docker logs exploding-sats --tail 5          # "Score service listening on port 3002"
-curl -s -o /dev/null -w "%{http_code}" http://localhost:3004
+curl -s -o /dev/null -w "%{http_code}" http://localhost:3005
 ```
 
 Then add a proxy host in nginx-proxy-manager (port 81) for the domain pointing at `exploding-sats:80`.
