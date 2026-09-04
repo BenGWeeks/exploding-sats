@@ -1028,19 +1028,35 @@ export function Game() {
             <p>Pay 21 sats to fight. Every clean blow knocks your opponent down for a full yin-yang; a scrappy one earns half. First to two full points wins the bout. Win two bouts to be graded up a Dan and move to a new arena. Lose a bout and the match is over. Remaining seconds pay 100 points each.</p>
             <div className="grid grid-cols-2 gap-x-6 gap-y-1 font-mono">
               <div className="text-amber-400 font-bold col-span-2 border-b border-amber-700 pb-1">JOYSTICK ONLY (Q W E / A D / Z X C, OR ARROWS)</div>
-              <span>▲ Jump</span><span>▼ Crouch</span>
-              <span>▶ Walk forward</span><span>◀ Walk back / block</span>
-              <span>◤ Forward somersault</span><span>◣ Backward somersault</span>
-              <span>◥ High punch</span><span>◢ Jab punch</span>
-              <span className="col-span-2">▼ then ◢ Low punch (from a crouch)</span>
-              <div className="text-amber-400 font-bold col-span-2 border-b border-amber-700 pb-1 mt-2">WITH FIRE (LEFT SHIFT / SPACE)</div>
-              <span>▲ Flying kick</span><span>◥ High kick</span>
-              <span>▶ Mid kick</span><span>◢ Short jab kick</span>
-              <span>▼ Forward sweep</span><span>◣ Backward sweep</span>
-              <span>◀ Roundhouse (hold)</span><span>◀ About-face (release early)</span>
-              <span>◤ High back kick</span><span>FIRE alone: about-face</span>
+              {([
+                ['W', 'up', 'Jump'], ['X', 'down', 'Crouch'],
+                ['D', 'forward', 'Walk forward'], ['A', 'back', 'Walk back / block'],
+                ['Q', 'up-back', 'Forward somersault'], ['Z', 'down-back', 'Backward somersault'],
+                ['E', 'up-forward', 'High punch'], ['C', 'down-forward', 'Jab punch'],
+                ['X then C', 'crouch, then forward', 'Low punch'],
+              ] as const).map(([key, dir, move]) => (
+                <div key={move} className="flex items-baseline gap-2">
+                  <span className="inline-block min-w-[2.2em] text-center bg-amber-900/60 border border-amber-600 rounded px-1 text-amber-200">{key}</span>
+                  <span className="text-amber-600 text-sm whitespace-nowrap">{dir}</span>
+                  <span>{move}</span>
+                </div>
+              ))}
+              <div className="text-amber-400 font-bold col-span-2 border-b border-amber-700 pb-1 mt-2">WITH FIRE HELD (LEFT SHIFT / SPACE)</div>
+              {([
+                ['W', 'up', 'Flying kick'], ['E', 'up-forward', 'High kick'],
+                ['D', 'forward', 'Mid kick'], ['C', 'down-forward', 'Short jab kick'],
+                ['X', 'down', 'Forward sweep'], ['Z', 'down-back', 'Backward sweep'],
+                ['A', 'back (hold)', 'Roundhouse'], ['A', 'back (release early)', 'About-face'],
+                ['Q', 'up-back', 'High back kick'], ['Shift', 'alone', 'About-face'],
+              ] as const).map(([key, dir, move]) => (
+                <div key={move + dir} className="flex items-baseline gap-2">
+                  <span className="inline-block min-w-[2.2em] text-center bg-amber-900/60 border border-amber-600 rounded px-1 text-amber-200">{key}</span>
+                  <span className="text-amber-600 text-sm whitespace-nowrap">{dir}</span>
+                  <span>{move}</span>
+                </div>
+              ))}
             </div>
-            <p className="text-amber-500 text-base">The keys are the C64 original's: the letter grid is the joystick, Shift is fire. Player 2 uses P [ ] / L ' / , . / with right Shift. Directions are relative to the way you face. Sweeps can't be blocked - jump them. Duck the flying kick. Gamepads work too: stick or D-pad plus any button. After the fourth arena a bull charges in: somersault over it, or stop it with a low punch on the nose.</p>
+            <p className="text-amber-500 text-base">Keys are shown for a fighter facing right, as on the C64: the letter grid is the joystick (Q W E top row, A D middle, Z X C bottom) and Shift is fire. Forward and back swap when you face left, so A walks forward and D back. Arrow keys work the same way. Player 2 uses P [ ] / L ' / , . / with right Shift. Sweeps can't be blocked - jump them. Duck the flying kick. Gamepads work too: stick or D-pad plus any button. After the fourth arena a bull charges in: somersault over it, or stop it with a low punch on the nose.</p>
           </div>
         </DialogContent>
       </Dialog>
