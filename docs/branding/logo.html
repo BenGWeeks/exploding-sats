@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Way of the Exploding Sats logo, rendered to docs/logo.png by scripts/render-branding.js">
+  <title>Way of the Exploding Sats - logo</title>
+  <style>
+    @font-face {
+      font-family: 'VT323';
+      src: url('../../node_modules/@fontsource/vt323/files/vt323-latin-400-normal.woff2') format('woff2');
+    }
+    html, body { margin: 0; background: transparent; }
+    body { width: 1200px; height: 420px; display: flex; align-items: center; justify-content: center; font-family: 'VT323', monospace; }
+    .logo { position: relative; width: 1120px; height: 360px; }
+    /* Yellow title band, like the original's title screen */
+    .band {
+      position: absolute; left: 0; right: 0; top: 70px; height: 260px;
+      background: #f7931a;
+      clip-path: polygon(0 6%, 100% 0, 99% 94%, 1% 100%);
+      box-shadow: 0 0 0 6px #000;
+    }
+    .band::after {
+      content: ''; position: absolute; inset: 0;
+      background: repeating-linear-gradient(transparent 0 6px, rgba(0,0,0,0.06) 6px 8px);
+    }
+    /* Black brush stroke behind the big words */
+    .stroke {
+      position: absolute; left: 150px; right: 40px; top: 118px; height: 170px;
+      background: #000;
+      clip-path: polygon(0 18%, 4% 4%, 30% 8%, 55% 0, 80% 6%, 100% 2%, 98% 60%, 100% 96%, 70% 90%, 45% 100%, 20% 92%, 2% 98%);
+    }
+    .small {
+      position: absolute; left: 190px; top: 78px;
+      font-size: 52px; letter-spacing: 0.32em; color: #000; font-style: italic;
+    }
+    .big {
+      position: absolute; left: 175px; top: 122px; width: 900px;
+      font-size: 158px; line-height: 1; color: #f7931a; letter-spacing: 0.02em;
+      text-shadow: 6px 6px 0 #7a1d0e;
+      white-space: nowrap;
+    }
+    .tag {
+      position: absolute; right: 60px; top: 296px;
+      font-size: 34px; letter-spacing: 0.2em; color: #000;
+    }
+    /* Pixel fist from the favicon */
+    .fist { position: absolute; left: 6px; top: 40px; width: 160px; height: 160px; image-rendering: pixelated; }
+    .fist rect { shape-rendering: crispEdges; }
+  </style>
+</head>
+<body>
+  <div class="logo">
+    <div class="band"></div>
+    <div class="stroke"></div>
+    <div class="small">THE WAY OF THE</div>
+    <div class="big">EXPLODING SATS</div>
+    <div class="tag">PAY 21 SATS TO FIGHT ⚡</div>
+    <svg class="fist" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+      <rect fill="#000000" x="0" y="0" width="32" height="32"/>
+      <rect fill="#f7931a" x="4" y="4" width="2" height="2"/>
+      <rect fill="#f7931a" x="26" y="4" width="2" height="2"/>
+      <rect fill="#f7931a" x="15" y="1" width="2" height="3"/>
+      <rect fill="#f7931a" x="1" y="15" width="3" height="2"/>
+      <rect fill="#f7931a" x="28" y="15" width="3" height="2"/>
+      <rect fill="#f7931a" x="4" y="26" width="2" height="2"/>
+      <rect fill="#f7931a" x="26" y="26" width="2" height="2"/>
+      <rect fill="#f7931a" x="15" y="28" width="2" height="3"/>
+      <rect fill="#ffd45c" x="6" y="6" width="2" height="2"/>
+      <rect fill="#ffd45c" x="24" y="6" width="2" height="2"/>
+      <rect fill="#ffd45c" x="6" y="24" width="2" height="2"/>
+      <rect fill="#ffd45c" x="24" y="24" width="2" height="2"/>
+      <rect fill="#ffffff" x="8" y="18" width="6" height="8"/>
+      <rect fill="#e8a870" x="12" y="8" width="12" height="14"/>
+      <rect fill="#e8a870" x="10" y="12" width="2" height="8"/>
+      <rect fill="#b87a48" x="12" y="8" width="12" height="2"/>
+      <rect fill="#b87a48" x="15" y="10" width="1" height="4"/>
+      <rect fill="#b87a48" x="18" y="10" width="1" height="4"/>
+      <rect fill="#b87a48" x="21" y="10" width="1" height="4"/>
+      <rect fill="#b87a48" x="12" y="15" width="12" height="1"/>
+      <rect fill="#b87a48" x="12" y="18" width="12" height="1"/>
+      <rect fill="#e8a870" x="12" y="20" width="10" height="3"/>
+      <rect fill="#b87a48" x="12" y="22" width="10" height="1"/>
+    </svg>
+  </div>
+</body>
+</html>

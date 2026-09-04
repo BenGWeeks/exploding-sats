@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="description" content="Way of the Exploding Sats social preview card (1200x630), rendered to docs/social-preview.png and public/og-image.png by scripts/render-branding.js">
+  <title>Way of the Exploding Sats - social preview</title>
+  <style>
+    @font-face {
+      font-family: 'VT323';
+      src: url('../../node_modules/@fontsource/vt323/files/vt323-latin-400-normal.woff2') format('woff2');
+    }
+    html, body { margin: 0; }
+    body {
+      width: 1200px; height: 630px; overflow: hidden; position: relative;
+      background: #000; color: #f59e0b; font-family: 'VT323', monospace;
+    }
+    /* CRT scanlines */
+    body::after {
+      content: ''; position: absolute; inset: 0; pointer-events: none;
+      background: repeating-linear-gradient(transparent 0 3px, rgba(255,180,60,0.05) 3px 4px);
+    }
+    .shot {
+      position: absolute; right: -60px; top: 70px; width: 700px; height: 438px;
+      border: 6px solid #f59e0b; border-radius: 10px;
+      box-shadow: 0 0 40px rgba(245,158,11,0.45);
+      background-size: cover; background-position: center;
+      image-rendering: pixelated;
+      transform: rotate(-2deg);
+    }
+    .text { position: absolute; left: 56px; top: 64px; width: 480px; }
+    .small { font-size: 40px; letter-spacing: 0.3em; color: #fbbf24; }
+    .big { font-size: 108px; line-height: 0.95; color: #f7931a; text-shadow: 5px 5px 0 #7a1d0e; margin: 8px 0 24px; }
+    .tag { font-size: 44px; color: #fde68a; line-height: 1.2; }
+    .pill {
+      display: inline-block; margin-top: 26px; padding: 6px 22px;
+      background: #dc2626; color: #fff; font-size: 40px; border-radius: 8px; letter-spacing: 0.05em;
+    }
+    .foot { position: absolute; left: 56px; bottom: 34px; font-size: 32px; color: #b45309; letter-spacing: 0.1em; }
+  </style>
+</head>
+<body>
+  <div class="shot" id="shot"></div>
+  <div class="text">
+    <div class="small">THE WAY OF THE</div>
+    <div class="big">EXPLODING<br>SATS</div>
+    <div class="tag">The 1985 karate classic,<br>reborn on Lightning &amp; Nostr.</div>
+    <div class="pill">⚡ 21 SATS TO FIGHT</div>
+  </div>
+  <div class="foot">EXPLODINGSATS.COM</div>
+</body>
+</html>

@@ -1,8 +1,10 @@
-# Way of the Exploding Sats
+<p align="center"><img src="docs/logo.png" alt="Way of the Exploding Sats" width="720"></p>
 
 A faithful browser tribute to the 1985 C64 karate classic **The Way of the Exploding Fist**, powered by Bitcoin Lightning and Nostr.
 
 Pay 21 sats to fight. Publish your grade and score to the decentralized leaderboard.
+
+![Way of the Exploding Sats gameplay](docs/screenshot.png)
 
 ## Features
 
@@ -104,6 +106,14 @@ On black-panther the container is defined in the apps-stack docker-compose (see 
 │       ├── useGameScores.ts       # Leaderboard queries
 │       └── useLNbitsPayment.ts    # Invoice + payment polling
 └── score-service/                 # Score signing microservice (kind 30762)
+```
+
+## Branding
+
+`docs/logo.png`, `docs/screenshot.png`, `docs/social-preview.png` and `public/og-image.png` are rendered by `scripts/render-branding.js` from the HTML templates in `docs/branding/` (VT323 pixel font, Bitcoin orange on black, the fist from the favicon). Re-run it with the dev server up whenever the look changes:
+
+```bash
+node scripts/render-branding.js
 ```
 
 ## Credits
