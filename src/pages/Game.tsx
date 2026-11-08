@@ -477,7 +477,7 @@ export function Game() {
     }
     setIsPaymentProcessing(true);
     try {
-      const invoice = await createLNbitsInvoice(GAME_COST_SATS, 'Exploding Sats - 21 sats to play');
+      const invoice = await createLNbitsInvoice(GAME_COST_SATS);
 
       const nwcConnection = getActiveConnection();
       if (nwcConnection && nwcConnection.isConnected) {
@@ -517,7 +517,7 @@ export function Game() {
   const handleGenerateInvoice = async () => {
     setIsPaymentProcessing(true);
     try {
-      const invoice = await createLNbitsInvoice(GAME_COST_SATS, 'Exploding Sats - 21 sats to play');
+      const invoice = await createLNbitsInvoice(GAME_COST_SATS);
       setLightningInvoice(invoice);
       const qrDataUrl = await QRCode.toDataURL(invoice.toUpperCase(), {
         errorCorrectionLevel: 'L',

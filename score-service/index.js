@@ -7,6 +7,8 @@ import { createLightningService, createLightningRouter } from './lightning.js';
 globalThis.WebSocket = WebSocket;
 
 const PORT = process.env.PORT || 3002;
+// Loopback by default: in the container nginx proxies /api to it locally.
+const HOST = process.env.HOST || '127.0.0.1';
 const GAME_NSEC = process.env.GAME_NSEC;
 const GAME_ID = 'exploding-sats';
 const GRADES = ['NOVICE', '1ST DAN', '2ND DAN', '3RD DAN', '4TH DAN', '5TH DAN', '6TH DAN', '7TH DAN', '8TH DAN', '9TH DAN', '10TH DAN'];
@@ -65,7 +67,7 @@ function parseBody(req) {
   });
 }
 
-// Send JSON response
+// Send JSON response (with CORS, for publish-score; /lightning/* responds same-origin only)
 function sendJson(res, status, data) {
   res.writeHead(status, {
     'Content-Type': 'application/json',
@@ -154,21 +156,26 @@ const lightning = createLightningService({
 if (!lightning.configured) {
   console.error('LIGHTNING_ADDRESS / LNBITS_INVOICE_KEY not set - Lightning payments will report unavailable');
 }
-const handleLightning = createLightningRouter({ service: lightning, sendJson, parseBody });
+const handleLightning = createLightningRouter({ service: lightning, parseBody });
 
 // HTTP server
 const server = http.createServer(async (req, res) => {
-  // Handle CORS preflight
-  if (req.method === 'OPTIONS') {
-    sendJson(res, 204, {});
-    return;
-  }
-
   let pathname;
   try {
     pathname = new URL(req.url, 'http://localhost').pathname;
   } catch {
     sendJson(res, 400, { error: 'Bad request' });
+    return;
+  }
+
+  // Handle CORS preflight (not for the same-origin Lightning API)
+  if (req.method === 'OPTIONS') {
+    if (pathname.startsWith('/lightning/')) {
+      res.writeHead(204);
+      res.end();
+    } else {
+      sendJson(res, 204, {});
+    }
     return;
   }
 
@@ -182,7 +189,10 @@ const server = http.createServer(async (req, res) => {
     if (await handleLightning(req, res, pathname)) return;
   } catch (err) {
     console.error('Lightning API error:', err);
-    if (!res.headersSent) sendJson(res, 500, { error: 'Internal error' });
+    if (!res.headersSent) {
+      res.writeHead(500, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ error: 'Internal error' }));
+    }
     return;
   }
 
@@ -227,8 +237,8 @@ const server = http.createServer(async (req, res) => {
   sendJson(res, 404, { error: 'Not found' });
 });
 
-server.listen(PORT, () => {
-  console.log(`Score service listening on port ${PORT}`);
+server.listen(PORT, HOST, () => {
+  console.log(`Score service listening on ${HOST}:${PORT}`);
   console.log(`Game ID: ${GAME_ID}`);
   console.log(`Relays: ${RELAYS.join(', ')}`);
 });

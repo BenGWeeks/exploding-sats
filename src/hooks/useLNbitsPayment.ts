@@ -14,7 +14,7 @@ interface UseLNbitsPaymentOptions {
 }
 
 interface UseLNbitsPaymentReturn {
-  createInvoice: (amountSats: number, memo?: string) => Promise<string>;
+  createInvoice: (amountSats: number) => Promise<string>;
   invoice: string | null;
   paymentHash: string | null;
   isPaid: boolean;
@@ -30,6 +30,8 @@ export class LightningUnavailableError extends Error {
     this.name = 'LightningUnavailableError';
   }
 }
+
+const SERVER_UNREACHABLE_MESSAGE = "Couldn't reach the game server. Check your connection and try again.";
 
 /**
  * Hook to create invoices and poll for payment status via the game's own API
@@ -100,7 +102,7 @@ export function useLNbitsPayment({ onPaid }: UseLNbitsPaymentOptions = {}): UseL
     }, 10 * 60 * 1000);
   }, [checkPaymentStatus, stopPolling]);
 
-  const createInvoice = useCallback(async (amountSats: number, memo?: string): Promise<string> => {
+  const createInvoice = useCallback(async (amountSats: number): Promise<string> => {
     setError(null);
     setIsPaid(false);
 
@@ -110,11 +112,14 @@ export function useLNbitsPayment({ onPaid }: UseLNbitsPaymentOptions = {}): UseL
         response = await fetch(`${LIGHTNING_API}/invoice`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ amountSats, memo }),
+          body: JSON.stringify({ amountSats }),
           signal: AbortSignal.timeout(20000),
         });
-      } catch {
-        throw new LightningUnavailableError();
+      } catch (err) {
+        // A timeout means the server answered too slowly (LNbits hanging); anything
+        // else is a network error on the player's side, e.g. offline.
+        if (err instanceof Error && err.name === 'TimeoutError') throw new LightningUnavailableError();
+        throw new Error(SERVER_UNREACHABLE_MESSAGE);
       }
 
       if (response.status === 503 || response.status === 502 || response.status === 504) {

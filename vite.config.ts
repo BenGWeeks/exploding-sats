@@ -11,7 +11,7 @@ export default defineConfig(() => ({
     proxy: {
       // Proxy /api to local score service on port 8089
       '/api': {
-        target: 'http://localhost:8089',
+        target: 'http://127.0.0.1:8089',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, ''),
       },

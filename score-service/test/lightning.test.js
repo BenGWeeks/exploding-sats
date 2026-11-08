@@ -111,12 +111,12 @@ function service(opts = {}, overrides = {}) {
 
 test('createInvoice resolves the lightning address and returns invoice + hash', async () => {
   const { service: s, lnbits } = service();
-  const result = await s.createInvoice(21, 'Exploding Sats - 21 sats to play');
+  const result = await s.createInvoice(21);
   assert.equal(result.paymentHash, HASH);
   assert.match(result.invoice, /^lnbc210n1/);
   const cb = new URL(lnbits.calls[1].url);
   assert.equal(cb.searchParams.get('amount'), '21000');
-  assert.equal(cb.searchParams.get('comment'), 'Exploding '); // trimmed to commentAllowed
+  assert.equal(cb.searchParams.get('comment'), 'Exploding '); // fixed memo, trimmed to commentAllowed
   // The invoice key is never sent to the LNURL endpoints
   assert.ok(lnbits.calls.every((c) => !('X-Api-Key' in c.headers)));
 });
@@ -165,15 +165,16 @@ test('health is cached for 60 seconds', async () => {
   assert.equal(lnbits.calls.length, 2);
 });
 
-test('rate limiter allows up to the limit per window', () => {
+test('rate limiter allows up to the limit per window, then returns seconds to wait', () => {
   let t = 0;
-  const allow = createRateLimiter({ now: () => t });
-  assert.equal(allow('a', 2), true);
-  assert.equal(allow('a', 2), true);
-  assert.equal(allow('a', 2), false);
-  assert.equal(allow('b', 2), true);
+  const retryAfter = createRateLimiter({ now: () => t });
+  assert.equal(retryAfter('a', 2), 0);
+  assert.equal(retryAfter('a', 2), 0);
+  t = 15 * 1000;
+  assert.equal(retryAfter('a', 2), 45);
+  assert.equal(retryAfter('b', 2), 0);
   t = 60 * 1000;
-  assert.equal(allow('a', 2), true);
+  assert.equal(retryAfter('a', 2), 0);
 });
 
 // --- HTTP router -----------------------------------------------------------
@@ -195,7 +196,7 @@ async function withServer(svc, fn) {
         }
       });
     });
-  const handle = createLightningRouter({ service: svc, sendJson, parseBody });
+  const handle = createLightningRouter({ service: svc, parseBody });
   const server = http.createServer(async (req, res) => {
     if (!(await handle(req, res, new URL(req.url, 'http://x').pathname))) sendJson(res, 404, {});
   });
@@ -213,11 +214,13 @@ test('router validates input and returns only what the UI needs', async () => {
     const post = (body) =>
       fetch(`${base}/lightning/invoice`, { method: 'POST', body: typeof body === 'string' ? body : JSON.stringify(body) });
 
-    let res = await post({ amountSats: 21, memo: 'hi' });
+    let res = await post({ amountSats: 21 });
     assert.equal(res.status, 200);
     assert.deepEqual(Object.keys(await res.json()).sort(), ['invoice', 'paymentHash']);
+    // Same-origin API: no CORS headers
+    assert.equal(res.headers.get('access-control-allow-origin'), null);
 
-    for (const bad of [{ amountSats: 20 }, { amountSats: 21.5 }, { amountSats: '21' }, { amountSats: 1000000 }, {}, { amountSats: 21, memo: 5 }]) {
+    for (const bad of [{ amountSats: 20 }, { amountSats: 21.5 }, { amountSats: '21' }, { amountSats: 1000000 }, {}]) {
       res = await post(bad);
       assert.equal(res.status, 400, JSON.stringify(bad));
     }
@@ -246,6 +249,34 @@ test('router answers 503 without leaking details when LNbits is down', async () 
     assert.equal(res.status, 503);
     res = await fetch(`${base}/lightning/health`);
     assert.deepEqual(await res.json(), { lightning: 'unavailable' });
+  });
+});
+
+test('router ignores a client-supplied memo', async () => {
+  const { service: s, lnbits } = service();
+  await withServer(s, async (base) => {
+    const res = await fetch(`${base}/lightning/invoice`, {
+      method: 'POST',
+      body: JSON.stringify({ amountSats: 21, memo: 'pwned by attacker' }),
+    });
+    assert.equal(res.status, 200);
+  });
+  const cb = new URL(lnbits.calls.find((c) => c.url.includes('/cb/')).url);
+  assert.equal(cb.searchParams.get('comment'), 'Exploding ');
+});
+
+test('router limits status polling per IP + hash, with Retry-After', async () => {
+  await withServer(service().service, async (base) => {
+    const otherHash = 'cd'.repeat(32);
+    for (let i = 0; i < 60; i++) {
+      assert.equal((await fetch(`${base}/lightning/payments/${HASH}`)).status, 200);
+    }
+    const limited = await fetch(`${base}/lightning/payments/${HASH}`);
+    assert.equal(limited.status, 429);
+    const retryAfter = Number(limited.headers.get('retry-after'));
+    assert.ok(retryAfter >= 1 && retryAfter <= 60, String(retryAfter));
+    // Another payer behind the same IP (carrier NAT) can still poll their own invoice
+    assert.equal((await fetch(`${base}/lightning/payments/${otherHash}`)).status, 200);
   });
 });
 

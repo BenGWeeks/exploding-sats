@@ -7,7 +7,7 @@
     "dev": "npm i --silent && dotenv -e .env.local -- concurrently -n game,api -c cyan,green \"vite\" \"cd score-service && npm i --silent && PORT=8089 node index.js\"",
     "dev:frontend": "npm i --silent && vite",
     "build": "npm i --silent && vite build -l error && cp dist/index.html dist/404.html && echo 'Project built successfully!'",
-    "test": "npm i --silent && tsc --noEmit && eslint && vitest run --reporter=dot --silent && node --test score-service/test/*.test.js && vite build -l error && cp dist/index.html dist/404.html && echo 'All tests passed!'",
+    "test": "npm i --silent && tsc --noEmit && eslint && vitest run --reporter=dot --silent && npm --prefix score-service i --silent && node --test score-service/test/*.test.js && vite build -l error && cp dist/index.html dist/404.html && echo 'All tests passed!'",
     "deploy": "npm i --silent && npm run build && npx -y nostr-deploy-cli deploy --skip-setup"
   },
   "dependencies": {
@@ -67,7 +67,6 @@
     "html5-qrcode": "^2.3.8",
     "idb": "^8.0.3",
     "input-otp": "^1.2.4",
-    "light-bolt11-decoder": "^3.2.0",
     "lucide-react": "^0.462.0",
     "nostr-tools": "^2.13.0",
     "npubcash-sdk": "^0.2.0",

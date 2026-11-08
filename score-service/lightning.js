@@ -4,27 +4,33 @@
 // invoice and polls it for payment status. The LNbits invoice key stays here,
 // read from the runtime environment, and never ends up in the public bundle.
 //
-//   POST /lightning/invoice         { amountSats, memo? } -> { invoice, paymentHash }
+//   POST /lightning/invoice         { amountSats }       -> { invoice, paymentHash }
 //   GET  /lightning/payments/:hash                         -> { paid }
 //   GET  /lightning/health                                 -> { lightning: 'ok' | 'unavailable' }
 //
 // (nginx strips the leading /api, so the browser calls /api/lightning/...)
+// The API is same-origin only, so these responses carry no CORS headers.
 
 import { decode } from 'light-bolt11-decoder';
 
 // The only prices the game charges. Anything else is rejected.
 export const ALLOWED_AMOUNTS_SATS = [21];
 
+// Fixed server-side memo: client-supplied memos are ignored.
+export const INVOICE_MEMO = 'Exploding Sats - 21 sats to play';
+
 const UPSTREAM_TIMEOUT_MS = 8000;
 const HEALTH_CACHE_MS = 60 * 1000;
-const MAX_MEMO_LENGTH = 100;
 const PAYMENT_HASH_RE = /^[0-9a-f]{64}$/;
 
-// Per-IP limits (fixed one-minute windows). Polling runs every 2s (30/min).
+// Fixed one-minute windows. Status polling runs every 2s (30/min per invoice), so
+// it is limited per IP + payment hash (players behind one carrier NAT don't starve
+// each other), with a much higher per-IP ceiling to protect LNbits.
 const RATE_LIMITS = {
-  invoice: 10,
-  payments: 120,
-  health: 60,
+  invoice: 10, // per IP
+  payment: 60, // per IP + hash
+  paymentsPerIp: 600, // per IP, all hashes
+  health: 60, // per IP
 };
 
 export class UpstreamError extends Error {}
@@ -33,12 +39,6 @@ function parseLightningAddress(address) {
   const [user, domain, ...rest] = (address || '').trim().split('@');
   if (!user || !domain || rest.length > 0) return null;
   return { user, domain };
-}
-
-function sanitizeMemo(memo) {
-  if (typeof memo !== 'string') return '';
-  // Printable characters only, collapsed whitespace, bounded length.
-  return memo.replace(/[^\x20-\x7E]/g, '').replace(/\s+/g, ' ').trim().slice(0, MAX_MEMO_LENGTH);
 }
 
 function decodeInvoice(bolt11) {
@@ -126,7 +126,7 @@ export function createLightningService({
     return healthInFlight;
   }
 
-  async function createInvoice(amountSats, memo) {
+  async function createInvoice(amountSats) {
     if (!configured) throw new UpstreamError('Lightning is not configured');
     try {
       const payRequest = await resolvePayRequest();
@@ -140,9 +140,8 @@ export function createLightningService({
 
       const callback = new URL(payRequest.callback);
       callback.searchParams.set('amount', String(amountMsat));
-      const comment = sanitizeMemo(memo);
-      if (comment && payRequest.commentAllowed > 0) {
-        callback.searchParams.set('comment', comment.slice(0, payRequest.commentAllowed));
+      if (payRequest.commentAllowed > 0) {
+        callback.searchParams.set('comment', INVOICE_MEMO.slice(0, payRequest.commentAllowed));
       }
 
       const data = await fetchJson(callback.toString());
@@ -199,12 +198,13 @@ export function createLightningService({
 }
 
 // Fixed-window per-key counter. Small and in-memory: enough to stop a single
-// client hammering LNbits through this service.
+// client hammering LNbits through this service. Returns 0 if allowed, otherwise
+// the number of seconds until the window resets (for Retry-After).
 export function createRateLimiter({ now = () => Date.now(), windowMs = 60 * 1000 } = {}) {
   const buckets = new Map();
   let lastSweep = now();
 
-  return function allow(key, limit) {
+  return function retryAfter(key, limit) {
     const t = now();
     if (t - lastSweep > windowMs) {
       for (const [k, b] of buckets) if (b.reset <= t) buckets.delete(k);
@@ -216,7 +216,7 @@ export function createRateLimiter({ now = () => Date.now(), windowMs = 60 * 1000
       buckets.set(key, bucket);
     }
     bucket.count += 1;
-    return bucket.count <= limit;
+    return bucket.count <= limit ? 0 : Math.max(1, Math.ceil((bucket.reset - t) / 1000));
   };
 }
 
@@ -230,25 +230,34 @@ function clientIp(req) {
 
 const UNAVAILABLE = { error: 'Lightning payments are temporarily unavailable' };
 
+// JSON response without CORS headers (same-origin API).
+function sendJson(res, status, data, headers = {}) {
+  res.writeHead(status, { 'Content-Type': 'application/json', 'Cache-Control': 'no-store', ...headers });
+  res.end(JSON.stringify(data));
+}
+
 // Returns true if the request was a /lightning/* route and has been answered.
-export function createLightningRouter({ service, sendJson, parseBody, rateLimiter = createRateLimiter() }) {
+export function createLightningRouter({ service, parseBody, rateLimiter = createRateLimiter() }) {
   return async function handle(req, res, pathname) {
     if (!pathname.startsWith('/lightning/')) return false;
 
-    const limited = (bucket) => {
-      if (rateLimiter(`${bucket}:${clientIp(req)}`, RATE_LIMITS[bucket])) return false;
-      sendJson(res, 429, { error: 'Too many requests' });
+    const ip = clientIp(req);
+    // Every bucket is counted; the longest wait wins.
+    const limited = (...buckets) => {
+      const wait = Math.max(...buckets.map(([name, key]) => rateLimiter(`${name}:${key}`, RATE_LIMITS[name])));
+      if (!wait) return false;
+      sendJson(res, 429, { error: 'Too many requests' }, { 'Retry-After': String(wait) });
       return true;
     };
 
     if (req.method === 'GET' && pathname === '/lightning/health') {
-      if (limited('health')) return true;
+      if (limited(['health', ip])) return true;
       sendJson(res, 200, { lightning: await service.health() });
       return true;
     }
 
     if (req.method === 'POST' && pathname === '/lightning/invoice') {
-      if (limited('invoice')) return true;
+      if (limited(['invoice', ip])) return true;
       let body;
       try {
         body = await parseBody(req);
@@ -261,12 +270,8 @@ export function createLightningRouter({ service, sendJson, parseBody, rateLimite
         sendJson(res, 400, { error: 'Invalid amount' });
         return true;
       }
-      if (body.memo !== undefined && typeof body.memo !== 'string') {
-        sendJson(res, 400, { error: 'Invalid memo' });
-        return true;
-      }
       try {
-        const { invoice, paymentHash } = await service.createInvoice(amountSats, body.memo);
+        const { invoice, paymentHash } = await service.createInvoice(amountSats);
         sendJson(res, 200, { invoice, paymentHash });
       } catch (err) {
         console.warn('[lightning] invoice creation failed:', err.message);
@@ -277,12 +282,12 @@ export function createLightningRouter({ service, sendJson, parseBody, rateLimite
 
     const paymentMatch = pathname.match(/^\/lightning\/payments\/([^/]+)$/);
     if (req.method === 'GET' && paymentMatch) {
-      if (limited('payments')) return true;
       const hash = paymentMatch[1];
       if (!PAYMENT_HASH_RE.test(hash)) {
         sendJson(res, 400, { error: 'Invalid payment hash' });
         return true;
       }
+      if (limited(['payment', `${ip}:${hash}`], ['paymentsPerIp', ip])) return true;
       try {
         sendJson(res, 200, { paid: await service.isPaid(hash) });
       } catch (err) {

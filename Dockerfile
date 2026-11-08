@@ -28,8 +28,10 @@ COPY score-service/index.js score-service/lightning.js ./
 # Lightning payments are created and checked server-side by the score service.
 # LNBITS_INVOICE_KEY must be supplied at runtime (docker compose environment),
 # never as a build arg: it must not end up in the image or the browser bundle.
+# HOST: the score service only listens on loopback; nginx proxies /api to it.
 ENV LIGHTNING_ADDRESS=space.zappers@bank.weeksfamily.me \
-    LNBITS_URL=https://bank.weeksfamily.me
+    LNBITS_URL=https://bank.weeksfamily.me \
+    HOST=127.0.0.1
 
 # Copy built game files and fix permissions
 COPY --from=builder /app/dist /usr/share/nginx/html
