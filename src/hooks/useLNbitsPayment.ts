@@ -1,28 +1,20 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
-import { decode } from 'light-bolt11-decoder';
 
-interface LNURLPayResponse {
-  callback: string;
-  minSendable: number;
-  maxSendable: number;
-  metadata: string;
-  commentAllowed?: number;
-}
+// Served by the score service (nginx proxies /api). It talks to LNbits server-side,
+// so no LNbits key is ever shipped to the browser.
+const LIGHTNING_API = '/api/lightning';
 
-interface LNURLInvoiceResponse {
-  pr: string;
-  routes?: unknown[];
+interface InvoiceResponse {
+  invoice: string;
+  paymentHash: string;
 }
 
 interface UseLNbitsPaymentOptions {
-  lightningAddress: string;
-  lnbitsUrl: string;
-  apiKey: string;
   onPaid?: () => void;
 }
 
 interface UseLNbitsPaymentReturn {
-  createInvoice: (amountSats: number, memo?: string) => Promise<string>;
+  createInvoice: (amountSats: number) => Promise<string>;
   invoice: string | null;
   paymentHash: string | null;
   isPaid: boolean;
@@ -31,178 +23,142 @@ interface UseLNbitsPaymentReturn {
   reset: () => void;
 }
 
-/**
- * Extract payment hash from bolt11 invoice
- */
-function extractPaymentHash(bolt11: string): string | null {
-  try {
-    const decoded = decode(bolt11);
-    const paymentHashSection = decoded.sections.find(
-      (s: { name: string }) => s.name === 'payment_hash'
-    ) as { name: string; value: string } | undefined;
-    return paymentHashSection?.value || null;
-  } catch {
-    return null;
+/** Thrown when the server reports that Lightning payments are temporarily unavailable. */
+export class LightningUnavailableError extends Error {
+  constructor() {
+    super('Lightning payments are temporarily unavailable. Please try again a little later.');
+    this.name = 'LightningUnavailableError';
   }
 }
 
+const SERVER_UNREACHABLE_MESSAGE = "Couldn't reach the game server. Check your connection and try again.";
+
 /**
- * Hook to create invoices via LNURL and poll LNbits for payment status
+ * Hook to create invoices and poll for payment status via the game's own API
  */
-export function useLNbitsPayment({
-  lightningAddress,
-  lnbitsUrl,
-  apiKey,
-  onPaid,
-}: UseLNbitsPaymentOptions): UseLNbitsPaymentReturn {
+export function useLNbitsPayment({ onPaid }: UseLNbitsPaymentOptions = {}): UseLNbitsPaymentReturn {
   const [invoice, setInvoice] = useState<string | null>(null);
   const [paymentHash, setPaymentHash] = useState<string | null>(null);
   const [isPaid, setIsPaid] = useState(false);
   const [isPolling, setIsPolling] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const pollingRef = useRef<NodeJS.Timeout | null>(null);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const pollingTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const onPaidRef = useRef(onPaid);
 
   useEffect(() => {
     onPaidRef.current = onPaid;
   }, [onPaid]);
 
-  useEffect(() => {
-    return () => {
-      if (pollingRef.current) {
-        clearInterval(pollingRef.current);
-      }
-    };
-  }, []);
-
-  const checkPaymentStatus = useCallback(async (hash: string): Promise<boolean> => {
-    try {
-      const url = `${lnbitsUrl}/api/v1/payments/${hash}`;
-
-      const response = await fetch(url, {
-        headers: {
-          'X-Api-Key': apiKey,
-        },
-      });
-
-      if (!response.ok) {
-        console.warn('[Payment] Status check failed:', response.status, await response.text());
-        return false;
-      }
-
-      const data = await response.json();
-      // LNbits uses "status": "success" for paid invoices (not "paid": true)
-      const isPaid = data.paid === true || data.status === 'success';
-      return isPaid;
-    } catch (err) {
-      console.warn('[Payment] Error checking status:', err);
-      return false;
-    }
-  }, [lnbitsUrl, apiKey]);
-
-  const startPolling = useCallback((hash: string) => {
-    // Clear any existing polling before starting new one
+  const stopPolling = useCallback(() => {
     if (pollingRef.current) {
       clearInterval(pollingRef.current);
       pollingRef.current = null;
     }
+    if (pollingTimeoutRef.current) {
+      clearTimeout(pollingTimeoutRef.current);
+      pollingTimeoutRef.current = null;
+    }
+  }, []);
 
+  useEffect(() => stopPolling, [stopPolling]);
+
+  const checkPaymentStatus = useCallback(async (hash: string): Promise<boolean> => {
+    try {
+      const response = await fetch(`${LIGHTNING_API}/payments/${hash}`, {
+        signal: AbortSignal.timeout(10000),
+      });
+      if (!response.ok) {
+        // Transient (LNbits down, rate limited...): treat as not paid yet and keep polling
+        console.warn('[Payment] Status check failed:', response.status);
+        return false;
+      }
+      const data: { paid?: boolean } = await response.json();
+      return data.paid === true;
+    } catch (err) {
+      console.warn('[Payment] Error checking status:', err);
+      return false;
+    }
+  }, []);
+
+  const startPolling = useCallback((hash: string) => {
+    stopPolling();
     setIsPolling(true);
 
     pollingRef.current = setInterval(async () => {
       const paid = await checkPaymentStatus(hash);
-
-      if (paid) {
+      if (paid && pollingRef.current) {
+        stopPolling();
         setIsPaid(true);
         setIsPolling(false);
-
-        if (pollingRef.current) {
-          clearInterval(pollingRef.current);
-          pollingRef.current = null;
-        }
-
-        if (onPaidRef.current) {
-          onPaidRef.current();
-        }
+        onPaidRef.current?.();
       }
     }, 2000);
 
     // Stop polling after 10 minutes
-    setTimeout(() => {
-      if (pollingRef.current) {
-        clearInterval(pollingRef.current);
-        pollingRef.current = null;
-        setIsPolling(false);
-      }
+    pollingTimeoutRef.current = setTimeout(() => {
+      stopPolling();
+      setIsPolling(false);
     }, 10 * 60 * 1000);
-  }, [checkPaymentStatus]);
+  }, [checkPaymentStatus, stopPolling]);
 
-  const createInvoice = useCallback(async (amountSats: number, memo?: string): Promise<string> => {
+  const createInvoice = useCallback(async (amountSats: number): Promise<string> => {
     setError(null);
     setIsPaid(false);
 
     try {
-      // Parse lightning address
-      const [username, domain] = lightningAddress.split('@');
-      if (!username || !domain) {
-        throw new Error('Invalid lightning address');
+      let response: Response;
+      try {
+        response = await fetch(`${LIGHTNING_API}/invoice`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ amountSats }),
+          signal: AbortSignal.timeout(20000),
+        });
+      } catch (err) {
+        // A timeout means the server answered too slowly (LNbits hanging); anything
+        // else is a network error on the player's side, e.g. offline.
+        if (err instanceof Error && err.name === 'TimeoutError') throw new LightningUnavailableError();
+        throw new Error(SERVER_UNREACHABLE_MESSAGE);
       }
 
-      // Step 1: Get LNURL-pay endpoint (CORS enabled)
-      const lnurlResponse = await fetch(`https://${domain}/.well-known/lnurlp/${username}`);
-      if (!lnurlResponse.ok) {
-        throw new Error('Failed to resolve lightning address');
+      if (response.status === 503 || response.status === 502 || response.status === 504) {
+        throw new LightningUnavailableError();
       }
-      const lnurlData: LNURLPayResponse = await lnurlResponse.json();
-
-      // Step 2: Request invoice from callback (CORS enabled)
-      const callbackUrl = new URL(lnurlData.callback);
-      callbackUrl.searchParams.set('amount', (amountSats * 1000).toString());
-      if (memo && lnurlData.commentAllowed) {
-        callbackUrl.searchParams.set('comment', memo.slice(0, lnurlData.commentAllowed));
+      if (response.status === 429) {
+        throw new Error('Too many attempts. Please wait a minute and try again.');
       }
-
-      const invoiceResponse = await fetch(callbackUrl.toString());
-      if (!invoiceResponse.ok) {
+      if (!response.ok) {
         throw new Error('Failed to get invoice');
       }
-      const invoiceData: LNURLInvoiceResponse = await invoiceResponse.json();
 
-      if (!invoiceData.pr) {
+      const data: InvoiceResponse = await response.json();
+      if (!data.invoice || !/^[0-9a-f]{64}$/.test(data.paymentHash)) {
         throw new Error('No invoice returned');
       }
 
-      // Extract payment hash from bolt11
-      const hash = extractPaymentHash(invoiceData.pr);
-      if (!hash) {
-        throw new Error('Could not extract payment hash');
-      }
-
-      setInvoice(invoiceData.pr);
-      setPaymentHash(hash);
+      setInvoice(data.invoice);
+      setPaymentHash(data.paymentHash);
 
       // Start polling for payment status
-      startPolling(hash);
+      startPolling(data.paymentHash);
 
-      return invoiceData.pr;
+      return data.invoice;
     } catch (err) {
       const message = err instanceof Error ? err.message : 'Failed to create invoice';
       setError(message);
       throw err;
     }
-  }, [lightningAddress, startPolling]);
+  }, [startPolling]);
 
   const reset = useCallback(() => {
-    if (pollingRef.current) {
-      clearInterval(pollingRef.current);
-      pollingRef.current = null;
-    }
+    stopPolling();
     setInvoice(null);
     setPaymentHash(null);
     setIsPaid(false);
     setIsPolling(false);
     setError(null);
-  }, []);
+  }, [stopPolling]);
 
   return {
     createInvoice,

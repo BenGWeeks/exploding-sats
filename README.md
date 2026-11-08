@@ -43,32 +43,31 @@ Same stack as [Space Zappers](https://spacezappers.com):
 ```bash
 npm install
 npm run dev      # game on http://localhost:8088, score service on 8089
-npm run test     # TypeScript, ESLint, Vitest, then production build
+npm run test     # TypeScript, ESLint, Vitest, score-service tests, then production build
 npm run build
 ```
 
-Create `.env.local` with the game's Nostr key for the score service:
+Create `.env.local` with the score service settings (see `.env.example`):
 
 ```
 GAME_NSEC=nsec1...
+LIGHTNING_ADDRESS=your.game@your-lnbits-instance
+LNBITS_URL=https://your-lnbits-instance
+LNBITS_INVOICE_KEY=<invoice/read key of the receiving wallet>
 VITE_GAME_PUBKEY=<64-char-hex-pubkey>
-```
-
-And `.env` with the Lightning configuration (see `.env.example`):
-
-```
-VITE_LNBITS_URL=https://your-lnbits-instance
-VITE_LNBITS_INVOICE_KEY=<invoice/read key of the receiving wallet>
 VITE_LIGHTNING_ADDRESS=your.game@your-lnbits-instance
-VITE_GAME_PUBKEY=<64-char-hex-pubkey>
 ```
+
+The LNbits key is read by the score service at runtime and is never part of the browser bundle. Only public values belong in `VITE_*` variables.
 
 ## Lightning Payment Flow
 
-1. The game requests an invoice from the Lightning address (LNURL-pay).
+1. The game asks the score service for an invoice (`POST /api/lightning/invoice`); the service resolves the Lightning address (LNURL-pay) server-side.
 2. The player pays with any Lightning wallet.
-3. The game polls the LNbits wallet for the payment hash until it is paid.
+3. The game polls `GET /api/lightning/payments/<hash>`, which checks LNbits with the invoice key and returns only `{ paid }`.
 4. The match starts.
+
+`GET /api/lightning/health` reports whether LNbits is reachable (cached 60s). While it says `unavailable` the game shows "Lightning payments are temporarily unavailable" and disables the pay buttons; free play still works.
 
 ## Nostr Integration
 
@@ -76,13 +75,17 @@ Scores use the [Gamestr](https://gamestr.io) kind 30762 event, signed by the gam
 
 ## Deployment
 
-A single container serves the game (nginx) and the score signing service (Node.js):
+A single container serves the game (nginx) and the score/payment service (Node.js). If either process exits, the container exits so Docker restarts it. Secrets are runtime environment variables, never build args:
 
 ```bash
 docker build -t exploding-sats \
-  --build-arg VITE_LNBITS_INVOICE_KEY=<invoice key> \
   --build-arg VITE_LIGHTNING_ADDRESS=your.game@your-lnbits-instance .
-docker run -d --name exploding-sats -p 3005:80 -e GAME_NSEC=nsec1... exploding-sats
+docker run -d --name exploding-sats -p 3005:80 \
+  -e GAME_NSEC=nsec1... \
+  -e LIGHTNING_ADDRESS=your.game@your-lnbits-instance \
+  -e LNBITS_URL=https://your-lnbits-instance \
+  -e LNBITS_INVOICE_KEY=<invoice key> \
+  exploding-sats
 ```
 
 On black-panther the container is defined in the apps-stack docker-compose (see CLAUDE.md).

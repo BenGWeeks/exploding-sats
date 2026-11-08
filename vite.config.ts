@@ -1,7 +1,7 @@
 import path from "node:path";
 
 import react from "@vitejs/plugin-react-swc";
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
 
 // https://vitejs.dev/config/
 export default defineConfig(() => ({
@@ -11,7 +11,7 @@ export default defineConfig(() => ({
     proxy: {
       // Proxy /api to local score service on port 8089
       '/api': {
-        target: 'http://localhost:8089',
+        target: 'http://127.0.0.1:8089',
         changeOrigin: true,
         rewrite: (path) => path.replace(/^\/api/, ''),
       },
@@ -24,6 +24,8 @@ export default defineConfig(() => ({
     globals: true,
     environment: 'jsdom',
     setupFiles: './src/test/setup.ts',
+    // score-service has its own Node tests (node --test), run by `npm test`
+    exclude: [...configDefaults.exclude, 'score-service/**'],
     onConsoleLog(log) {
       return !log.includes("React Router Future Flag Warning");
     },

@@ -5,9 +5,11 @@
   "main": "index.js",
   "type": "module",
   "scripts": {
-    "start": "node index.js"
+    "start": "node index.js",
+    "test": "node --test test/*.test.js"
   },
   "dependencies": {
+    "light-bolt11-decoder": "^3.2.0",
     "nostr-tools": "^2.10.4",
     "ws": "^8.18.3"
   }
