@@ -1,6 +1,7 @@
 import http from 'node:http';
 import WebSocket from 'ws';
 import { nip19, finalizeEvent, SimplePool } from 'nostr-tools';
+import { createLightningService, createLightningRouter } from './lightning.js';
 
 // Polyfill WebSocket for Node.js
 globalThis.WebSocket = WebSocket;
@@ -15,36 +16,44 @@ const RELAYS = [
   'wss://nos.lol',
 ];
 
-if (!GAME_NSEC) {
-  console.error('GAME_NSEC environment variable is required');
-  process.exit(1);
-}
-
-// Decode nsec to get private key
+// Without GAME_NSEC score publishing is disabled, but the service keeps running
+// because it also serves the Lightning payment API.
 let privateKey;
 let gamePubkey;
-try {
-  const decoded = nip19.decode(GAME_NSEC);
-  if (decoded.type !== 'nsec') {
-    throw new Error('Invalid nsec format');
+if (!GAME_NSEC) {
+  console.error('GAME_NSEC is not set - score publishing is disabled');
+} else {
+  try {
+    const decoded = nip19.decode(GAME_NSEC);
+    if (decoded.type !== 'nsec') {
+      throw new Error('Invalid nsec format');
+    }
+    privateKey = decoded.data;
+    // Get pubkey from private key
+    const { getPublicKey } = await import('nostr-tools/pure');
+    gamePubkey = getPublicKey(privateKey);
+    console.log('Game pubkey:', gamePubkey);
+  } catch (err) {
+    console.error('Failed to decode GAME_NSEC - score publishing is disabled:', err.message);
+    privateKey = undefined;
   }
-  privateKey = decoded.data;
-  // Get pubkey from private key
-  const { getPublicKey } = await import('nostr-tools/pure');
-  gamePubkey = getPublicKey(privateKey);
-  console.log('Game pubkey:', gamePubkey);
-} catch (err) {
-  console.error('Failed to decode GAME_NSEC:', err.message);
-  process.exit(1);
 }
 
 const pool = new SimplePool();
+
+const MAX_BODY_BYTES = 16 * 1024;
 
 // Parse JSON body from request
 function parseBody(req) {
   return new Promise((resolve, reject) => {
     let body = '';
-    req.on('data', chunk => body += chunk);
+    req.on('data', chunk => {
+      body += chunk;
+      if (body.length > MAX_BODY_BYTES) {
+        reject(new Error('Body too large'));
+        req.destroy();
+      }
+    });
     req.on('end', () => {
       try {
         resolve(JSON.parse(body));
@@ -61,7 +70,7 @@ function sendJson(res, status, data) {
   res.writeHead(status, {
     'Content-Type': 'application/json',
     'Access-Control-Allow-Origin': '*',
-    'Access-Control-Allow-Methods': 'POST, OPTIONS',
+    'Access-Control-Allow-Methods': 'GET, POST, OPTIONS',
     'Access-Control-Allow-Headers': 'Content-Type',
   });
   res.end(JSON.stringify(data));
@@ -136,6 +145,17 @@ async function publishScore({ playerPubkey, score, level, difficulty, duration }
   };
 }
 
+// Lightning payments: the LNbits invoice key is read at runtime and never sent to the browser
+const lightning = createLightningService({
+  lightningAddress: process.env.LIGHTNING_ADDRESS,
+  lnbitsUrl: process.env.LNBITS_URL,
+  invoiceKey: process.env.LNBITS_INVOICE_KEY,
+});
+if (!lightning.configured) {
+  console.error('LIGHTNING_ADDRESS / LNBITS_INVOICE_KEY not set - Lightning payments will report unavailable');
+}
+const handleLightning = createLightningRouter({ service: lightning, sendJson, parseBody });
+
 // HTTP server
 const server = http.createServer(async (req, res) => {
   // Handle CORS preflight
@@ -144,14 +164,34 @@ const server = http.createServer(async (req, res) => {
     return;
   }
 
+  let pathname;
+  try {
+    pathname = new URL(req.url, 'http://localhost').pathname;
+  } catch {
+    sendJson(res, 400, { error: 'Bad request' });
+    return;
+  }
+
   // Health check
-  if (req.method === 'GET' && req.url === '/health') {
+  if (req.method === 'GET' && pathname === '/health') {
     sendJson(res, 200, { status: 'ok', gamePubkey });
     return;
   }
 
+  try {
+    if (await handleLightning(req, res, pathname)) return;
+  } catch (err) {
+    console.error('Lightning API error:', err);
+    if (!res.headersSent) sendJson(res, 500, { error: 'Internal error' });
+    return;
+  }
+
   // Publish score endpoint
-  if (req.method === 'POST' && req.url === '/publish-score') {
+  if (req.method === 'POST' && pathname === '/publish-score') {
+    if (!privateKey) {
+      sendJson(res, 503, { error: 'Score publishing is not configured' });
+      return;
+    }
     try {
       const body = await parseBody(req);
 

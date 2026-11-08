@@ -19,16 +19,19 @@ Way of the Exploding Sats is a browser tribute to the 1985 C64 karate game "The 
 ```bash
 npm run dev      # Start game (8088) + score service (8089) concurrently
 npm run build    # Production build (outputs to dist/)
-npm run test     # Full validation: TypeScript check, ESLint, Vitest, then build
+npm run test     # Full validation: TypeScript check, ESLint, Vitest, score-service tests, then build
 ```
 
 ### Local Development Setup
-1. `.env.local` (git-ignored) holds the score service key:
+1. `.env.local` (git-ignored) holds the score service settings - see `.env.example`:
    ```
    GAME_NSEC=nsec1...
+   LIGHTNING_ADDRESS=...
+   LNBITS_URL=...
+   LNBITS_INVOICE_KEY=...
    VITE_GAME_PUBKEY=<64-char-hex-pubkey>
    ```
-2. `.env` (git-ignored) holds the Lightning configuration - see `.env.example`.
+2. Never put a secret in a `VITE_*` variable: Vite embeds them in the public bundle.
 3. Run `npm run dev` and open http://localhost:8088
 
 Always run `npm run test` after making changes.
@@ -52,9 +55,10 @@ Always run `npm run test` after making changes.
 - `score-service/index.js` - signs kind 30762 with `GAME_NSEC`. `level` = grade index (0 = Novice)
 
 ### Lightning Payment Flow
-1. "Pay 21 sats" -> `useLNbitsPayment` resolves `VITE_LIGHTNING_ADDRESS` via LNURL-pay and fetches an invoice
-2. Payment hash is extracted from the bolt11 and LNbits (`VITE_LNBITS_URL` + `VITE_LNBITS_INVOICE_KEY`) is polled every 2s
+1. "Pay 21 sats" -> `useLNbitsPayment` calls `POST /api/lightning/invoice`; `score-service/lightning.js` resolves `LIGHTNING_ADDRESS` via LNURL-pay server-side and checks the invoice amount
+2. The browser polls `GET /api/lightning/payments/<hash>` every 2s; the score service checks LNbits (`LNBITS_URL` + `LNBITS_INVOICE_KEY`, runtime env only) and returns `{ paid }`
 3. On paid, the match starts. NWC and WebLN wallets pay in one click.
+4. `useLightningHealth` polls `GET /api/lightning/health` (server probes the lnurlp URL, 8s timeout, cached 60s). While `unavailable`, the pay buttons are disabled with a friendly notice; a failed health check never blocks play.
 
 ### Provider Hierarchy (App.tsx)
 QueryClientProvider -> AppProvider -> NostrProvider -> NWCProvider -> UnheadProvider
@@ -79,7 +83,7 @@ QueryClientProvider -> AppProvider -> NostrProvider -> NWCProvider -> UnheadProv
 
 **IMPORTANT**: Do NOT deploy to production unless the user explicitly asks. Test on localhost:8088 first.
 
-The container is defined in `/home/benweeks/GitHub/black-panther/apps-stack/docker-compose.yml` (service `exploding-sats`, port 3005). It needs `EXPLODING_SATS_GAME_NSEC` and `EXPLODING_SATS_LNBITS_INVOICE_KEY` in `apps-stack/.env`.
+The container is defined in `/home/benweeks/GitHub/black-panther/apps-stack/docker-compose.yml` (service `exploding-sats`, port 3005). It needs `EXPLODING_SATS_GAME_NSEC` and `EXPLODING_SATS_LNBITS_INVOICE_KEY` in `apps-stack/.env`, passed as runtime `environment:` (`GAME_NSEC`, `LNBITS_INVOICE_KEY`, optionally `LIGHTNING_ADDRESS` / `LNBITS_URL`), never as build args.
 
 ```bash
 cd /home/benweeks/GitHub/black-panther/apps-stack

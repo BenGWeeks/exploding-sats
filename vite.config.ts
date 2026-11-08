@@ -1,7 +1,7 @@
 import path from "node:path";
 
 import react from "@vitejs/plugin-react-swc";
-import { defineConfig } from "vitest/config";
+import { configDefaults, defineConfig } from "vitest/config";
 
 // https://vitejs.dev/config/
 export default defineConfig(() => ({
@@ -24,6 +24,8 @@ export default defineConfig(() => ({
     globals: true,
     environment: 'jsdom',
     setupFiles: './src/test/setup.ts',
+    // score-service has its own Node tests (node --test), run by `npm test`
+    exclude: [...configDefaults.exclude, 'score-service/**'],
     onConsoleLog(log) {
       return !log.includes("React Router Future Flag Warning");
     },

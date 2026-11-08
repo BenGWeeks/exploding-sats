@@ -8,7 +8,8 @@ import htmlParser from "@html-eslint/parser";
 import customRules from "./eslint-rules/index.js";
 
 export default tseslint.config(
-  { ignores: ["dist"] },
+  // docs/branding/*.html are render templates for scripts/render-branding.js, not app pages
+  { ignores: ["dist", "docs/branding"] },
   {
     extends: [js.configs.recommended, ...tseslint.configs.recommended],
     files: ["**/*.{ts,tsx}"],

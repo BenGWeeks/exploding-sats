@@ -42,7 +42,8 @@ import {
 } from '@/lib/fistEngine';
 import { fistAudio } from '@/lib/fistAudio';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { useLNbitsPayment } from '@/hooks/useLNbitsPayment';
+import { useLNbitsPayment, LightningUnavailableError } from '@/hooks/useLNbitsPayment';
+import { useLightningHealth } from '@/hooks/useLightningHealth';
 import QRCode from 'qrcode';
 import { WalletModal } from '@/components/WalletModal';
 
@@ -52,10 +53,10 @@ const SHOWCASE = typeof window !== 'undefined' && new URLSearchParams(window.loc
 const SITE_URL = 'https://www.explodingsats.com';
 const HIGH_SCORE_KEY = 'exploding-sats-high-score';
 
-// Lightning / LNbits configuration from environment
+// Shown on the payment screen only. Invoices are created and checked server-side
+// by the score service (/api/lightning), so no LNbits key is in the bundle.
 const RECIPIENT_LIGHTNING_ADDRESS = import.meta.env.VITE_LIGHTNING_ADDRESS || 'space.zappers@bank.weeksfamily.me';
-const LNBITS_URL = import.meta.env.VITE_LNBITS_URL || '/lnbits';
-const LNBITS_INVOICE_KEY = import.meta.env.VITE_LNBITS_INVOICE_KEY || '';
+const LIGHTNING_UNAVAILABLE_MESSAGE = 'Lightning payments are temporarily unavailable. Please try again a little later.';
 
 // Keyboard, matching the C64 original: a 3x3 letter grid is the joystick and SHIFT is fire.
 // Player 1: Q W E / A D / Z X C (or the arrow keys), fire = left Shift, Space or Ctrl.
@@ -237,22 +238,23 @@ export function Game() {
   useEffect(() => { hasStartedRef.current = hasStarted; }, [hasStarted]);
   useEffect(() => { isMutedRef.current = isMuted; }, [isMuted]);
 
-  // LNbits payment hook - creates invoices via LNURL and polls for payment
+  // Payment hook - the score service creates invoices and checks LNbits for payment
   const {
     createInvoice: createLNbitsInvoice,
     isPaid: paymentConfirmed,
     isPolling,
     reset: resetPayment,
   } = useLNbitsPayment({
-    lightningAddress: RECIPIENT_LIGHTNING_ADDRESS,
-    lnbitsUrl: LNBITS_URL,
-    apiKey: LNBITS_INVOICE_KEY,
     onPaid: () => {
       setHasPaid(true);
       setLightningInvoice(null);
       setQrCodeDataUrl(null);
     },
   });
+
+  // When LNbits is down, block new payments (an already-paid match can still start)
+  const { lightningUnavailable, refreshLightningHealth } = useLightningHealth();
+  const paymentsBlocked = lightningUnavailable && !hasPaid;
 
   const showBanner = useCallback((text: string, ms = 1800) => {
     if (!hasStartedRef.current) return;
@@ -501,6 +503,11 @@ export function Game() {
 
       toast({ title: 'No wallet available', description: 'Please use the invoice payment option or connect a wallet', variant: 'destructive' });
     } catch (error) {
+      if (error instanceof LightningUnavailableError) {
+        refreshLightningHealth();
+        toast({ title: 'Lightning unavailable', description: LIGHTNING_UNAVAILABLE_MESSAGE, variant: 'destructive' });
+        return;
+      }
       toast({ title: 'Payment failed', description: error instanceof Error ? error.message : 'Please try again', variant: 'destructive' });
     } finally {
       setIsPaymentProcessing(false);
@@ -521,6 +528,11 @@ export function Game() {
       setQrCodeDataUrl(qrDataUrl);
       toast({ title: 'Invoice generated! ⚡', description: 'Scan the QR code or copy the invoice to pay' });
     } catch (error) {
+      if (error instanceof LightningUnavailableError) {
+        refreshLightningHealth();
+        toast({ title: 'Lightning unavailable', description: LIGHTNING_UNAVAILABLE_MESSAGE, variant: 'destructive' });
+        return;
+      }
       toast({ title: 'Failed to generate invoice', description: error instanceof Error ? error.message : 'Please try again', variant: 'destructive' });
     } finally {
       setIsPaymentProcessing(false);
@@ -725,6 +737,11 @@ export function Game() {
 
   const dialogClass = `bg-gray-900 border-amber-500 text-amber-400 border-4 ${isMobile ? 'max-w-[85vw] max-h-[80vh] overflow-y-auto p-3 mx-auto' : 'max-w-md'}`;
   const outlineBtn = 'border-amber-500 text-amber-400 hover:bg-amber-500 hover:text-black';
+  const lightningNotice = paymentsBlocked ? (
+    <div role="status" className={`bg-yellow-900/20 border border-yellow-600 rounded text-yellow-400 text-center ${isMobile ? 'p-2 text-xs' : 'p-3 text-sm'}`}>
+      {LIGHTNING_UNAVAILABLE_MESSAGE}
+    </div>
+  ) : null;
   const playerWon = ui.boutWinner === 0;
 
   return (
@@ -856,7 +873,8 @@ export function Game() {
                   </Button>
                 </div>
                 <div className="space-y-3">
-                  <Button onClick={() => startGame(false)} size="lg" className="bg-amber-500 text-black hover:bg-amber-400 font-bold text-2xl px-12 py-8 w-full">
+                  {lightningNotice}
+                  <Button onClick={() => startGame(false)} disabled={paymentsBlocked} size="lg" className="bg-amber-500 text-black hover:bg-amber-400 font-bold text-2xl px-12 py-8 w-full">
                     <Zap className="mr-3 h-8 w-8" />
                     PAY 21 SATS TO FIGHT
                   </Button>
@@ -912,8 +930,9 @@ export function Game() {
                   </div>
                 )}
                 <div className="flex flex-col gap-4">
+                  {lightningNotice}
                   <div className="flex gap-4">
-                    <Button onClick={() => startGame(false)} size="lg" className="bg-amber-500 text-black hover:bg-amber-400 font-bold text-xl px-8 py-6">
+                    <Button onClick={() => startGame(false)} disabled={paymentsBlocked} size="lg" className="bg-amber-500 text-black hover:bg-amber-400 font-bold text-xl px-8 py-6">
                       <Zap className="mr-2 h-6 w-6" />
                       FIGHT AGAIN (21 SATS)
                     </Button>
@@ -1099,8 +1118,9 @@ export function Game() {
                   <div className={`text-amber-600 ${isMobile ? 'text-xs mt-1' : 'text-lg mt-2'}`}>TO {RECIPIENT_LIGHTNING_ADDRESS}</div>
                 </div>
                 <div className={isMobile ? 'space-y-2' : 'space-y-3'}>
+                  {lightningNotice}
                   {wallet && (
-                    <Button onClick={handleWalletPayment} disabled={isPaymentProcessing} className={`w-full bg-amber-500 text-black hover:bg-amber-400 font-bold ${isMobile ? 'text-base py-3' : 'text-xl py-7'}`}>
+                    <Button onClick={handleWalletPayment} disabled={isPaymentProcessing || paymentsBlocked} className={`w-full bg-amber-500 text-black hover:bg-amber-400 font-bold ${isMobile ? 'text-base py-3' : 'text-xl py-7'}`}>
                       {isPaymentProcessing ? <>PROCESSING...</> : <><Zap className={isMobile ? 'mr-2 h-4 w-4' : 'mr-2 h-6 w-6'} />PAY WITH WALLET</>}
                     </Button>
                   )}
@@ -1110,7 +1130,7 @@ export function Game() {
                       <span className="bg-gray-900 px-2 text-amber-600">OR</span>
                     </div>
                   </div>
-                  <Button onClick={handleGenerateInvoice} disabled={isPaymentProcessing} variant="outline" className={`w-full ${outlineBtn} font-bold ${isMobile ? 'text-base py-3' : 'text-xl py-7'}`}>
+                  <Button onClick={handleGenerateInvoice} disabled={isPaymentProcessing || paymentsBlocked} variant="outline" className={`w-full ${outlineBtn} font-bold ${isMobile ? 'text-base py-3' : 'text-xl py-7'}`}>
                     {isPaymentProcessing ? <>GENERATING...</> : <>GET LIGHTNING INVOICE</>}
                   </Button>
                 </div>
