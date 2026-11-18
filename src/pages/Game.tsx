@@ -756,7 +756,7 @@ export function Game() {
       >
         <div className={`flex items-center ${isMobile ? 'gap-2' : 'gap-6'}`}>
           <h1 className={`font-bold tracking-wider text-amber-300 drop-shadow-[0_0_10px_rgba(245,158,11,0.8)] ${isMobile ? 'text-xl' : 'text-4xl'}`}>
-            {isMobile ? 'EXPLODING SATS' : 'WAY OF THE EXPLODING SATS'}
+            EXPLODING SATS
           </h1>
           <div className={`bg-red-600 text-white rounded font-bold ${isMobile ? 'text-xs px-2 py-0.5' : 'text-sm px-3 py-1'}`}>
             ⚡ 21 SATS
@@ -849,7 +849,6 @@ export function Game() {
           {!hasStarted && !SHOWCASE && (
             <div className="absolute inset-0 flex items-center justify-center bg-black/70">
               <div className="text-center space-y-5">
-                <div className="text-2xl tracking-[0.3em] text-amber-200">THE WAY OF THE</div>
                 <div className="text-7xl font-bold leading-none" style={{ color: '#f7931a', textShadow: '4px 4px 0 #7a1d0e' }}>
                   EXPLODING SATS
                 </div>
@@ -1040,7 +1039,7 @@ export function Game() {
           <DialogHeader>
             <DialogTitle className={`text-amber-300 flex items-center gap-2 ${isMobile ? 'text-xl' : 'text-3xl'}`}>
               <HelpCircle className={isMobile ? 'h-5 w-5' : 'h-8 w-8'} />
-              THE WAY OF THE FIST
+              MOVES
             </DialogTitle>
           </DialogHeader>
           <div className={`text-amber-200 ${isMobile ? 'space-y-2 text-sm' : 'space-y-4 text-lg'}`}>
