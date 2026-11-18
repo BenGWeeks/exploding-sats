@@ -661,10 +661,10 @@ export function Game() {
     const grade = gradeName(ui.grade);
     const score = ui.score.toLocaleString();
     const funMessages = [
-      `🥋 HI-YA! Just scored ${score} points and reached ${grade} in Way of the Exploding Sats! ⚡ Think you can take me on the mat?\n\n${SITE_URL}\n\n#ExplodingSats #ExplodingFist`,
+      `🥋 HI-YA! Just scored ${score} points and reached ${grade} in Exploding Sats! ⚡ Think you can take me on the mat?\n\n${SITE_URL}\n\n#ExplodingSats #Bitcoin`,
       `⚡ ${score} points, graded ${grade}. Full yin-yangs all the way! 🥋 Pay 21 sats and prove yourself.\n\n${SITE_URL}\n\n#ExplodingSats #Karate`,
-      `🥋 The sensei bowed. ${score} points at ${grade} in Way of the Exploding Sats. Your move.\n\n${SITE_URL}\n\n#ExplodingSats #ExplodingFist`,
-      `⚡ Flying kick for the full point! ${score} points and ${grade} in Way of the Exploding Sats 🥋\n\n${SITE_URL}\n\n#ExplodingSats #Retro`,
+      `🥋 The sensei bowed. ${score} points at ${grade} in Exploding Sats. Your move.\n\n${SITE_URL}\n\n#ExplodingSats #Lightning`,
+      `⚡ Flying kick for the full point! ${score} points and ${grade} in Exploding Sats 🥋\n\n${SITE_URL}\n\n#ExplodingSats #Retro`,
     ];
     setShareMessage(funMessages[Math.floor(Math.random() * funMessages.length)]);
     setShowShareDialog(true);
@@ -986,7 +986,7 @@ export function Game() {
           {hasStarted ? (
             <span>Q W E / A D / Z X C OR ARROWS: JOYSTICK | LEFT SHIFT / SPACE: FIRE | ESC: PAUSE{twoPlayer ? " | P2: P [ ] / L ' / , . / + RIGHT SHIFT" : ''}</span>
           ) : (
-            <span>A TRIBUTE TO THE WAY OF THE EXPLODING FIST (1985) • POWERED BY LIGHTNING ⚡</span>
+            <span>RETRO KARATE • 21 SATS A MATCH • POWERED BY LIGHTNING ⚡</span>
           )}
         </div>
       )}
@@ -1075,7 +1075,7 @@ export function Game() {
                 </div>
               ))}
             </div>
-            <p className="text-amber-500 text-base">Keys are shown for a fighter facing right, as on the C64: the letter grid is the joystick (Q W E top row, A D middle, Z X C bottom) and Shift is fire. Forward and back swap when you face left, so A walks forward and D back. Arrow keys work the same way. Player 2 uses P [ ] / L ' / , . / with right Shift. Sweeps can't be blocked - jump them. Duck the flying kick. Gamepads work too: stick or D-pad plus any button. After the fourth arena a bull charges in: somersault over it, or stop it with a low punch on the nose.</p>
+            <p className="text-amber-500 text-base">Keys are shown for a fighter facing right: the letter grid is the joystick (Q W E top row, A D middle, Z X C bottom) and Shift is fire. Forward and back swap when you face left, so A walks forward and D back. Arrow keys work the same way. Player 2 uses P [ ] / L ' / , . / with right Shift. Sweeps can't be blocked - jump them. Duck the flying kick. Gamepads work too: stick or D-pad plus any button. After the fourth arena a bull charges in: somersault over it, or stop it with a low punch on the nose.</p>
           </div>
         </DialogContent>
       </Dialog>
