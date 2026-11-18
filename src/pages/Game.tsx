@@ -41,6 +41,7 @@ import {
   type GameEvent,
 } from '@/lib/fistEngine';
 import { fistAudio } from '@/lib/fistAudio';
+import { P1_KEYS, P2_KEYS, type KeyRole } from '@/lib/keyMap';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useLNbitsPayment, LightningUnavailableError } from '@/hooks/useLNbitsPayment';
 import { useLightningHealth } from '@/hooks/useLightningHealth';
@@ -57,25 +58,6 @@ const HIGH_SCORE_KEY = 'exploding-sats-high-score';
 // by the score service (/api/lightning), so no LNbits key is in the bundle.
 const RECIPIENT_LIGHTNING_ADDRESS = import.meta.env.VITE_LIGHTNING_ADDRESS || 'space.zappers@bank.weeksfamily.me';
 const LIGHTNING_UNAVAILABLE_MESSAGE = 'Lightning payments are temporarily unavailable. Please try again a little later.';
-
-// Keyboard, matching the C64 original: a 3x3 letter grid is the joystick and SHIFT is fire.
-// Player 1: Q W E / A D / Z X C (or the arrow keys), fire = left Shift, Space or Ctrl.
-// Player 2: P [ ] / L ' / , . / (the C64's P @ * / L ; / , . /), fire = right Shift or Enter.
-// Keyed by KeyboardEvent.code so the layout is the same whatever the keyboard language.
-type KeyRole = 'up' | 'down' | 'left' | 'right' | 'upLeft' | 'upRight' | 'downLeft' | 'downRight' | 'fire';
-const P1_KEYS: Record<string, KeyRole> = {
-  ArrowUp: 'up', ArrowDown: 'down', ArrowLeft: 'left', ArrowRight: 'right',
-  KeyQ: 'upLeft', KeyW: 'up', KeyE: 'upRight',
-  KeyA: 'left', KeyD: 'right',
-  KeyZ: 'downLeft', KeyX: 'down', KeyC: 'downRight',
-  Space: 'fire', ShiftLeft: 'fire', ControlLeft: 'fire', ControlRight: 'fire',
-};
-const P2_KEYS: Record<string, KeyRole> = {
-  KeyP: 'upLeft', BracketLeft: 'up', BracketRight: 'upRight',
-  KeyL: 'left', Quote: 'right',
-  Comma: 'downLeft', Period: 'down', Slash: 'downRight',
-  ShiftRight: 'fire', Enter: 'fire', NumpadEnter: 'fire',
-};
 
 type KeyState = Record<KeyRole, boolean>;
 const emptyKeys = (): KeyState => ({ up: false, down: false, left: false, right: false, upLeft: false, upRight: false, downLeft: false, downRight: false, fire: false });
