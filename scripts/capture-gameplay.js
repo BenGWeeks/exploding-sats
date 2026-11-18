@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * Capture gameplay screenshots of Way of the Exploding Sats with Playwright.
+ * Capture gameplay screenshots of Exploding Sats with Playwright.
  *
  * Starts a free-play match against the CPU, performs a scripted sequence of moves and
  * saves a screenshot after each one, plus console errors, so animation and rendering
