@@ -168,7 +168,7 @@ describe('bout flow', () => {
       state.fighters[0].frame = 0; state.fighters[1].frame = 0;
       state.phase = 'fighting';
       step(state, [{ dir: { x: 1, y: 0 }, fire: true }, NEUTRAL_INPUT], MOVES.mid_kick.activeFrom! + 2);
-      step(state, IDLE, 130);
+      step(state, IDLE, 150); // knockdown, get-up and hit-stop
     }
     expect(state.phase).toBe('bout_over');
     expect(state.boutWinner).toBe(0);
