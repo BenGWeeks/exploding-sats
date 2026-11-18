@@ -40,6 +40,8 @@ export const CROUCH_HEIGHT = 38;
 export const WALK_SPEED = 1.1;
 export const GRAVITY = 0.30;
 export const JUMP_VELOCITY = 5.2;
+/** Frames after a somersault ends before the fighter can act (or block) again */
+export const SOMERSAULT_RECOVERY_FRAMES = 8;
 
 export const GRADES = [
   'NOVICE', '1ST DAN', '2ND DAN', '3RD DAN', '4TH DAN', '5TH DAN',
@@ -200,6 +202,8 @@ export interface Fighter {
   colour: 'white' | 'red';
   /** frames left holding back for the automatic block */
   guard: number;
+  /** frames left of somersault landing recovery: no input, no guard */
+  recovery: number;
 }
 
 export type Phase =
@@ -263,7 +267,7 @@ export interface GameState {
 function createFighter(x: number, facing: 1 | -1, isCpu: boolean, colour: 'white' | 'red'): Fighter {
   return {
     x, airY: 0, vy: 0, facing, move: 'bow', frame: 0, points: 0, attacks: 0, score: 0,
-    hitLanded: false, isCpu, colour, guard: 0,
+    hitLanded: false, isCpu, colour, guard: 0, recovery: 0,
   };
 }
 
@@ -348,9 +352,14 @@ function isBusy(f: Fighter): boolean {
   return (!def.cancelable && !def.loop) || f.airY > 0;
 }
 
+function isSomersault(move: MoveId): boolean {
+  return move === 'somersault_forward' || move === 'somersault_back';
+}
+
 function hurtRange(f: Fighter): { top: number; bottom: number } | null {
   const def = MOVES[f.move];
-  if (def.invulnerable) return null;
+  // A somersault is untouchable only in the air; the landing can be hit
+  if (def.invulnerable && !(isSomersault(f.move) && f.airY === 0)) return null;
   const crouched = f.move === 'crouch' || f.move === 'sweep' || f.move === 'back_sweep' || f.move === 'low_punch';
   const height = crouched ? CROUCH_HEIGHT : STAND_HEIGHT;
   return { top: -(height + f.airY), bottom: -f.airY };
@@ -389,6 +398,7 @@ function beginFighting(state: GameState) {
   const [a, b] = state.fighters;
   a.move = b.move = 'stand';
   a.frame = b.frame = 0;
+  a.recovery = b.recovery = 0;
   state.phase = 'fighting';
 }
 
@@ -412,6 +422,11 @@ export function aiProfile(grade: number): AiProfile {
     evade: 0.12 + g * 0.65,
     advance: 0.55 + g * 0.3,
   };
+}
+
+/** Whether a fighter can be hit right now */
+export function canBeHit(f: Fighter): boolean {
+  return hurtRange(f) !== null;
 }
 
 /** Movement inputs (walk, crouch, block) are held until the next decision. */
@@ -505,6 +520,13 @@ function applyInput(state: GameState, index: 0 | 1, input: FighterInput) {
     return;
   }
 
+  // Landing from a somersault: no input and no guard for a moment
+  if (f.recovery > 0) {
+    f.recovery--;
+    f.guard = 0;
+    return;
+  }
+
   // Holding back keeps the guard up (automatic high/low block)
   f.guard = !input.fire && dx === -1 && dy === 0 ? 12 : Math.max(0, f.guard - 1);
 
@@ -551,6 +573,7 @@ function advanceFighter(state: GameState, index: 0 | 1) {
     } else {
       if (def.strike && !f.hitLanded) state.events.push({ type: 'whoosh', who: index });
       if (def.flips) f.facing = f.facing === 1 ? -1 : 1;
+      if (isSomersault(f.move)) f.recovery = SOMERSAULT_RECOVERY_FRAMES;
       setMove(f, 'stand', state.events, index);
     }
   }
@@ -602,9 +625,8 @@ function resolveHit(state: GameState, attackerIndex: 0 | 1): boolean {
   attacker.points = Math.min(POINTS_TO_WIN, attacker.points + points);
   attacker.score += full ? (def.value ?? 200) : (def.value ?? 200) / 2;
 
-  // Every landed blow knocks the opponent down
+  // Every landed blow knocks the opponent down (from whatever height they were at)
   defender.facing = attacker.x > defender.x ? 1 : -1;
-  defender.airY = 0;
   defender.vy = 0;
   setMove(defender, 'fall', state.events, defenderIndex);
 
@@ -748,9 +770,10 @@ export function updateGame(state: GameState, inputs: [FighterInput, FighterInput
       advanceFighter(state, 0);
       advanceFighter(state, 1);
 
-      // Fighters cannot pass through each other while both are on the ground
+      // Fighters cannot pass through each other while both are on the ground. The pair's
+      // midpoint is kept far enough from the walls that neither is pushed out of the arena.
       if (Math.abs(p1.x - p2.x) < FIGHTER_HALF_WIDTH * 2 && p1.airY === 0 && p2.airY === 0) {
-        const mid = (p1.x + p2.x) / 2;
+        const mid = Math.max(ARENA_LEFT + FIGHTER_HALF_WIDTH, Math.min(ARENA_RIGHT - FIGHTER_HALF_WIDTH, (p1.x + p2.x) / 2));
         const dir = p1.x <= p2.x ? 1 : -1;
         p1.x = mid - dir * FIGHTER_HALF_WIDTH;
         p2.x = mid + dir * FIGHTER_HALF_WIDTH;
