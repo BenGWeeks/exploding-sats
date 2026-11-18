@@ -603,7 +603,7 @@ function clash(state: GameState) {
   state.events.push({ type: 'clash' });
 }
 
-function applyHit(state: GameState, attackerIndex: 0 | 1, strikeX: number) {
+function applyHit(state: GameState, attackerIndex: 0 | 1, strikeX: number): boolean {
   const attacker = state.fighters[attackerIndex];
   const defenderIndex = (1 - attackerIndex) as 0 | 1;
   const defender = state.fighters[defenderIndex];
@@ -617,7 +617,7 @@ function applyHit(state: GameState, attackerIndex: 0 | 1, strikeX: number) {
   if (defender.guard > 0 && facingAttacker && !def.unblockable && defender.airY === 0 && !isAttack(defender.move)) {
     setMove(defender, def.height === 'low' ? 'block_low' : 'block_high', state.events, defenderIndex);
     state.events.push({ type: 'block', who: defenderIndex });
-    return;
+    return false;
   }
 
   const full = judgeHit(attacker, defender, def, strikeX);
@@ -636,6 +636,7 @@ function applyHit(state: GameState, attackerIndex: 0 | 1, strikeX: number) {
   state.lastPointWinner = attackerIndex;
   state.phase = 'point';
   state.phaseTimer = 30;
+  return true;
 }
 
 function endBout(state: GameState, winner: 0 | 1) {
