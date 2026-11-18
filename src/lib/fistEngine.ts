@@ -198,12 +198,12 @@ export interface Fighter {
   score: number;
   /** current move has already connected */
   hitLanded: boolean;
+  /** frames left of somersault landing recovery: no input, no guard */
+  recovery: number;
   isCpu: boolean;
   colour: 'white' | 'red';
   /** frames left holding back for the automatic block */
   guard: number;
-  /** frames left of somersault landing recovery: no input, no guard */
-  recovery: number;
 }
 
 export type Phase =
@@ -266,8 +266,9 @@ export interface GameState {
 
 function createFighter(x: number, facing: 1 | -1, isCpu: boolean, colour: 'white' | 'red'): Fighter {
   return {
+    recovery: 0,
     x, airY: 0, vy: 0, facing, move: 'bow', frame: 0, points: 0, attacks: 0, score: 0,
-    hitLanded: false, isCpu, colour, guard: 0, recovery: 0,
+    hitLanded: false, isCpu, colour, guard: 0,
   };
 }
 
