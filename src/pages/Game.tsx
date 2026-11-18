@@ -16,6 +16,7 @@ import { JoystickControls } from '@/components/JoystickControls';
 import { useCurrentUser } from '@/hooks/useCurrentUser';
 import { useLoginActions } from '@/hooks/useLoginActions';
 import { useIsMobile } from '@/hooks/useIsMobile';
+import { useAutoPause } from '@/hooks/useAutoPause';
 import { useOrientation } from '@/hooks/useOrientation';
 import {
   DropdownMenu,
@@ -48,6 +49,7 @@ import QRCode from 'qrcode';
 import { WalletModal } from '@/components/WalletModal';
 
 const GAME_COST_SATS = 21;
+const FREE_PLAY_SECONDS = 60;
 // ?showcase hides the attract overlay so the CPU vs CPU demo can be watched/recorded
 const SHOWCASE = typeof window !== 'undefined' && new URLSearchParams(window.location.search).has('showcase');
 const SITE_URL = 'https://www.explodingsats.com';
@@ -144,9 +146,10 @@ export function Game() {
   const [showLeaderboard, setShowLeaderboard] = useState(false);
   const [showHowToPlay, setShowHowToPlay] = useState(false);
   const [isFreePlay, setIsFreePlay] = useState(false);
-  const [freePlayTimeLeft, setFreePlayTimeLeft] = useState(60);
+  const [freePlayTimeLeft, setFreePlayTimeLeft] = useState(FREE_PLAY_SECONDS);
   const [gameEndReason, setGameEndReason] = useState<'match' | 'timeout' | null>(null);
-  const freePlayTimerRef = useRef<NodeJS.Timeout | null>(null);
+  // Free play is timed in game frames, so it stops with the game (paused, hidden tab)
+  const freePlayFramesRef = useRef(0);
   const [twoPlayer, setTwoPlayer] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [showLoginToSave, setShowLoginToSave] = useState(false);
@@ -308,10 +311,7 @@ export function Game() {
 
   const stopGame = useCallback(() => {
     fistAudio.stopMusic();
-    if (freePlayTimerRef.current) {
-      clearInterval(freePlayTimerRef.current);
-      freePlayTimerRef.current = null;
-    }
+    freePlayFramesRef.current = 0;
     setHasStarted(false);
     setIsPaused(false);
     stateRef.current = createInitialState({ demo: true, seed: Date.now() & 0xffff });
@@ -355,6 +355,20 @@ export function Game() {
         if ((hasStartedRef.current || audioUnlockedRef.current) && state.events.length) handleEvents(state.events, state);
         if (state.phase !== prevPhase || state.fighters[0].score !== prevScore || state.grade !== prevGrade || state.gameOver) {
           uiChanged = true;
+        }
+        if (freePlayFramesRef.current > 0 && hasStartedRef.current && !state.gameOver) {
+          const secondsBefore = Math.ceil(freePlayFramesRef.current / FRAME_RATE);
+          freePlayFramesRef.current--;
+          const secondsLeft = Math.ceil(freePlayFramesRef.current / FRAME_RATE);
+          if (secondsLeft !== secondsBefore) setFreePlayTimeLeft(secondsLeft);
+          if (freePlayFramesRef.current === 0) {
+            fistAudio.stopMusic();
+            if (!isMutedRef.current) fistAudio.playDefeat();
+            setGameEndReason('timeout');
+            state.gameOver = true;
+            state.phase = 'game_over';
+            uiChanged = true;
+          }
         }
         if (hasStartedRef.current && !state.demo && state.fighters[0].score > highScoreRef.current) {
           highScoreRef.current = state.fighters[0].score;
@@ -432,6 +446,10 @@ export function Game() {
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasStarted, ui.gameOver, isPaused, showPayment, hasPaid, twoPlayer]);
+
+  // Pause when the player looks away: window blur or the tab hidden
+  const pauseGame = useCallback(() => setIsPaused(true), []);
+  useAutoPause(hasStarted && !ui.gameOver && !isPaused, pauseGame);
 
   // Pause when dialogs are open
   useEffect(() => {
@@ -562,33 +580,11 @@ export function Game() {
 
     if (freeMode) {
       setIsFreePlay(true);
-      setFreePlayTimeLeft(60);
-      if (freePlayTimerRef.current) clearInterval(freePlayTimerRef.current);
-      freePlayTimerRef.current = setInterval(() => {
-        if (isPausedRef.current) return;
-        setFreePlayTimeLeft((prev) => {
-          if (prev <= 1) {
-            if (freePlayTimerRef.current) {
-              clearInterval(freePlayTimerRef.current);
-              freePlayTimerRef.current = null;
-            }
-            fistAudio.stopMusic();
-            if (!isMutedRef.current) fistAudio.playDefeat();
-            setGameEndReason('timeout');
-            stateRef.current.gameOver = true;
-            stateRef.current.phase = 'game_over';
-            setUi(snapshot(stateRef.current));
-            return 0;
-          }
-          return prev - 1;
-        });
-      }, 1000);
+      setFreePlayTimeLeft(FREE_PLAY_SECONDS);
+      freePlayFramesRef.current = FREE_PLAY_SECONDS * FRAME_RATE;
     } else {
       setIsFreePlay(false);
-      if (freePlayTimerRef.current) {
-        clearInterval(freePlayTimerRef.current);
-        freePlayTimerRef.current = null;
-      }
+      freePlayFramesRef.current = 0;
     }
 
     fistAudio.initialize();
