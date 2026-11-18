@@ -40,6 +40,12 @@ export const CROUCH_HEIGHT = 38;
 export const WALK_SPEED = 1.1;
 export const GRAVITY = 0.30;
 export const JUMP_VELOCITY = 5.2;
+/**
+ * A jump, about-face or somersault input must be held this many frames before it commits,
+ * so a near-simultaneous press (fire a frame before the direction, up a frame before
+ * forward) resolves to the technique the player meant, not to whichever key landed first.
+ */
+export const INPUT_SETTLE_FRAMES = 4;
 
 export const GRADES = [
   'NOVICE', '1ST DAN', '2ND DAN', '3RD DAN', '4TH DAN', '5TH DAN',
@@ -200,6 +206,10 @@ export interface Fighter {
   colour: 'white' | 'red';
   /** frames left holding back for the automatic block */
   guard: number;
+  /** consecutive frames a jump / about-face / somersault input has been held */
+  settle: number;
+  /** fire alone has already turned this fighter; no further turn until fire is released */
+  turnLatched: boolean;
 }
 
 export type Phase =
@@ -263,7 +273,7 @@ export interface GameState {
 function createFighter(x: number, facing: 1 | -1, isCpu: boolean, colour: 'white' | 'red'): Fighter {
   return {
     x, airY: 0, vy: 0, facing, move: 'bow', frame: 0, points: 0, attacks: 0, score: 0,
-    hitLanded: false, isCpu, colour, guard: 0,
+    hitLanded: false, isCpu, colour, guard: 0, settle: 0, turnLatched: false,
   };
 }
 
@@ -492,12 +502,22 @@ function cpuDecision(state: GameState, me: Fighter, foe: Fighter, profile: AiPro
 // Fighter update
 // ---------------------------------------------------------------------------
 
+/** Moves that wait for the input to settle before committing */
+function needsSettle(move: MoveId): boolean {
+  return move === 'jump' || move === 'turn' || move === 'somersault_forward' || move === 'somersault_back';
+}
+
 function applyInput(state: GameState, index: 0 | 1, input: FighterInput) {
   const f = state.fighters[index];
   if (state.phase !== 'fighting' && state.phase !== 'bull') return;
 
   const dx = (input.dir.x * f.facing) as -1 | 0 | 1;
   const dy = input.dir.y;
+
+  // Counted even while busy, so an input held through a move commits as soon as the fighter is free
+  const wanted = moveForInput(dx, dy, input.fire, f.move === 'crouch');
+  f.settle = wanted !== null && needsSettle(wanted) ? f.settle + 1 : 0;
+  if (wanted !== 'turn') f.turnLatched = false;
 
   // Roundhouse: release fire early and it becomes a quick about-face
   if (f.move === 'roundhouse' && !input.fire && f.frame < (MOVES.roundhouse.abortToTurnBefore ?? 0)) {
@@ -510,12 +530,14 @@ function applyInput(state: GameState, index: 0 | 1, input: FighterInput) {
 
   if (isBusy(f)) return;
 
-  const wanted = moveForInput(dx, dy, input.fire, f.move === 'crouch');
-  if (wanted === null) {
+  // Holding fire alone turns once, not over and over
+  if (wanted === null || (wanted === 'turn' && f.turnLatched)) {
     if (f.move !== 'stand') setMove(f, 'stand', state.events, index);
     return;
   }
+  if (needsSettle(wanted) && f.settle < INPUT_SETTLE_FRAMES) return;
   if (wanted === f.move && MOVES[wanted].loop) return;
+  if (wanted === 'turn') f.turnLatched = true;
   setMove(f, wanted, state.events, index);
 }
 
