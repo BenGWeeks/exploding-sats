@@ -29,6 +29,8 @@ export const BOUTS_PER_GRADE = 2;
 export const SCENE_COUNT = 4;
 export const TWO_PLAYER_BOUTS = 4;
 export const FRAME_RATE = 60;
+/** Both fighters freeze for this many frames when a blow scores, then the fall plays */
+export const HIT_STOP_FRAMES = 10;
 
 export const SCORE_TIME_BONUS_PER_SECOND = 100;
 export const SCORE_BULL_BONUS = 2000;
@@ -234,6 +236,8 @@ export interface GameState {
   fighters: [Fighter, Fighter];
   phase: Phase;
   phaseTimer: number;
+  /** frames left of the freeze after a scoring blow */
+  hitStop: number;
   /** bout number within the current grade (1 or 2) or within the 2P match (1-4) */
   bout: number;
   /** index into GRADES */
@@ -291,6 +295,7 @@ export function createInitialState(options: GameOptions = {}): GameState {
     ],
     phase: 'intro',
     phaseTimer: MOVES.bow.frames,
+    hitStop: 0,
     bout: 1,
     grade: 0,
     boutsWon: 0,
@@ -613,6 +618,7 @@ function resolveHit(state: GameState, attackerIndex: 0 | 1): boolean {
   state.lastPointWinner = attackerIndex;
   state.phase = 'point';
   state.phaseTimer = 30;
+  state.hitStop = HIT_STOP_FRAMES;
   return true;
 }
 
@@ -771,6 +777,11 @@ export function updateGame(state: GameState, inputs: [FighterInput, FighterInput
     }
 
     case 'point': {
+      // Hit-stop: both fighters hold the moment of impact before the fall plays
+      if (state.hitStop > 0) {
+        state.hitStop--;
+        break;
+      }
       advanceFighter(state, 0);
       advanceFighter(state, 1);
       if (p1.move === 'lying' && p1.frame === 1 || p2.move === 'lying' && p2.frame === 1) {
