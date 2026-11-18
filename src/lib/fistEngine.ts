@@ -33,10 +33,10 @@ export const FRAME_RATE = 60;
 export const SCORE_TIME_BONUS_PER_SECOND = 100;
 export const SCORE_BULL_BONUS = 2000;
 export const SCORE_BULL_LOW_PUNCH_BONUS = 3000;
-/** How far each fighter is knocked back when both strikes land on the same frame */
-export const CLASH_RECOIL = 8;
 
 export const FIGHTER_HALF_WIDTH = 14;
+/** How far each fighter is knocked back when both strikes land on the same frame */
+export const CLASH_RECOIL = 8;
 export const STAND_HEIGHT = 52;
 export const CROUCH_HEIGHT = 38;
 export const WALK_SPEED = 1.1;
