@@ -436,7 +436,7 @@ export function renderWorld(ctx: CanvasRenderingContext2D, state: GameState, fla
 
   // Sensei: far right and small in scenes 1-2, close and large on the left in 3-4
   const scene = state.scene % 4;
-  const signal: 0 | 1 | null = state.judgeSignal > 0 ? (state.boutWinner ?? (state.bull ? 0 : null)) : null;
+  const signal: 0 | 1 | null = state.judgeSignal > 0 ? (state.boutWinner ?? state.lastPointWinner ?? (state.bull ? 0 : null)) : null;
   const bowing = state.phase === 'intro' && state.phaseTimer > 30;
   if (scene < 2) drawSensei(ctx, 298, GROUND_Y - 28, 0.8, signal, bowing);
   else drawSensei(ctx, 34, GROUND_Y - 6, 1.05, signal, bowing);
