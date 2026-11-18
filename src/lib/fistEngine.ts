@@ -38,10 +38,10 @@ export const FIGHTER_HALF_WIDTH = 14;
 export const STAND_HEIGHT = 52;
 export const CROUCH_HEIGHT = 38;
 export const WALK_SPEED = 1.1;
-export const GRAVITY = 0.30;
-export const JUMP_VELOCITY = 5.2;
 /** Frames after a somersault ends before the fighter can act (or block) again */
 export const SOMERSAULT_RECOVERY_FRAMES = 8;
+export const GRAVITY = 0.30;
+export const JUMP_VELOCITY = 5.2;
 
 export const GRADES = [
   'NOVICE', '1ST DAN', '2ND DAN', '3RD DAN', '4TH DAN', '5TH DAN',
