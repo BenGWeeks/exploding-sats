@@ -114,7 +114,7 @@ export interface MoveDef {
   invulnerable?: boolean;
   /** flips facing when finished */
   flips?: boolean;
-  /** shouts kiai on start */
+  /** shouts kiai on the first active (striking) frame */
   kiai?: boolean;
   /** frames within which releasing fire aborts a roundhouse into an about-face */
   abortToTurnBefore?: number;
@@ -330,7 +330,8 @@ export function isDown(move: MoveId): boolean {
   return move === 'fall' || move === 'lying' || move === 'getup';
 }
 
-function setMove(f: Fighter, move: MoveId, events: GameEvent[], who: 0 | 1) {
+// events and who are unused since the kiai moved to the first active frame; kept so call sites stay unchanged
+function setMove(f: Fighter, move: MoveId, _events: GameEvent[], _who: 0 | 1) {
   f.move = move;
   f.frame = 0;
   f.hitLanded = false;
@@ -340,7 +341,6 @@ function setMove(f: Fighter, move: MoveId, events: GameEvent[], who: 0 | 1) {
     f.airY = Math.max(f.airY, 0.01);
   }
   if (def.strike) f.attacks++;
-  if (def.kiai) events.push({ type: 'kiai', who });
 }
 
 function isBusy(f: Fighter): boolean {
@@ -538,6 +538,8 @@ function advanceFighter(state: GameState, index: 0 | 1) {
 
   f.x = Math.max(ARENA_LEFT, Math.min(ARENA_RIGHT, f.x));
   f.frame++;
+  // The shout goes with the strike, not the wind-up
+  if (def.kiai && f.frame === def.activeFrom) state.events.push({ type: 'kiai', who: index });
 
   if (f.frame >= def.frames) {
     if (def.loop) {
