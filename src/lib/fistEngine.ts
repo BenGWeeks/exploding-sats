@@ -35,6 +35,8 @@ export const SCORE_BULL_BONUS = 2000;
 export const SCORE_BULL_LOW_PUNCH_BONUS = 3000;
 
 export const FIGHTER_HALF_WIDTH = 14;
+/** How far each fighter is knocked back when both strikes land on the same frame */
+export const CLASH_RECOIL = 8;
 export const STAND_HEIGHT = 52;
 export const CROUCH_HEIGHT = 38;
 export const WALK_SPEED = 1.1;
@@ -190,7 +192,7 @@ export interface Fighter {
   frame: number;
   /** yin-yangs scored in the current bout (0.5 steps) */
   points: number;
-  /** attacks thrown this bout - the judge uses it to settle a draw */
+  /** attacks that landed or were blocked this bout (whiffs don't count) - the judge uses it to settle a draw */
   attacks: number;
   /** total score (P1 in one-player mode; both in two-player mode) */
   score: number;
@@ -219,7 +221,7 @@ export interface Bull {
 }
 
 export type GameEventType =
-  | 'kiai' | 'crack' | 'thud' | 'block' | 'whoosh' | 'point'
+  | 'kiai' | 'crack' | 'thud' | 'block' | 'clash' | 'whoosh' | 'point'
   | 'bout_won' | 'bout_lost' | 'draw' | 'promotion' | 'tick' | 'time_bonus'
   | 'gallop' | 'bull_down' | 'bull_bonus' | 'game_over';
 
@@ -339,7 +341,6 @@ function setMove(f: Fighter, move: MoveId, events: GameEvent[], who: 0 | 1) {
     f.vy = def.launch;
     f.airY = Math.max(f.airY, 0.01);
   }
-  if (def.strike) f.attacks++;
   if (def.kiai) events.push({ type: 'kiai', who });
 }
 
@@ -570,24 +571,46 @@ function judgeHit(attacker: Fighter, defender: Fighter, def: MoveDef, strikeX: n
   return horizontalError <= FIGHTER_HALF_WIDTH - 1 && timing <= 0.6;
 }
 
-function resolveHit(state: GameState, attackerIndex: 0 | 1): boolean {
+/** Where the attacker's strike meets the defender this frame (the strike's x), or null. No side effects. */
+function strikeContact(state: GameState, attackerIndex: 0 | 1): number | null {
   const attacker = state.fighters[attackerIndex];
-  const defenderIndex = (1 - attackerIndex) as 0 | 1;
-  const defender = state.fighters[defenderIndex];
+  const defender = state.fighters[1 - attackerIndex];
   const def = MOVES[attacker.move];
-  if (!def.strike || attacker.hitLanded) return false;
-  if (attacker.frame < (def.activeFrom ?? 0) || attacker.frame > (def.activeTo ?? 0)) return false;
+  if (!def.strike || attacker.hitLanded) return null;
+  if (attacker.frame < (def.activeFrom ?? 0) || attacker.frame > (def.activeTo ?? 0)) return null;
 
   const hurt = hurtRange(defender);
-  if (!hurt) return false;
+  if (!hurt) return null;
 
   const strikeX = attacker.x + def.strike.x * attacker.facing;
   const strikeY = def.strike.y - attacker.airY;
   const horizontal = Math.abs(strikeX - defender.x) <= FIGHTER_HALF_WIDTH + def.strike.reach;
   const vertical = strikeY >= hurt.top - 2 && strikeY <= hurt.bottom + 2;
-  if (!horizontal || !vertical) return false;
+  return horizontal && vertical ? strikeX : null;
+}
+
+/** Both strikes landed on the same frame: neither scores, both are knocked back to neutral. */
+function clash(state: GameState) {
+  const [a, b] = state.fighters;
+  const dir = a.x <= b.x ? 1 : -1;
+  a.x -= dir * CLASH_RECOIL;
+  b.x += dir * CLASH_RECOIL;
+  state.fighters.forEach((f, i) => {
+    f.attacks++;
+    f.x = Math.max(ARENA_LEFT, Math.min(ARENA_RIGHT, f.x));
+    setMove(f, 'stand', state.events, i as 0 | 1);
+  });
+  state.events.push({ type: 'clash' });
+}
+
+function applyHit(state: GameState, attackerIndex: 0 | 1, strikeX: number): boolean {
+  const attacker = state.fighters[attackerIndex];
+  const defenderIndex = (1 - attackerIndex) as 0 | 1;
+  const defender = state.fighters[defenderIndex];
+  const def = MOVES[attacker.move];
 
   attacker.hitLanded = true;
+  attacker.attacks++;
 
   // Automatic block: holding back while facing the attack stops anything but a sweep
   const facingAttacker = (attacker.x - defender.x) * defender.facing > 0;
@@ -638,12 +661,15 @@ function endBout(state: GameState, winner: 0 | 1) {
   }
 }
 
-/** The clock has run out: the judge decides on points, then on who fought harder. */
-function judgeDecision(state: GameState): 0 | 1 {
+/**
+ * The clock has run out: the judge decides on points, then on attacks that landed or
+ * were blocked. Still level is a draw (null): the bout is fought again.
+ */
+function judgeDecision(state: GameState): 0 | 1 | null {
   const [a, b] = state.fighters;
   if (a.points !== b.points) return a.points > b.points ? 0 : 1;
   if (a.attacks !== b.attacks) return a.attacks > b.attacks ? 0 : 1;
-  return 0;
+  return null;
 }
 
 // ---------------------------------------------------------------------------
@@ -756,8 +782,12 @@ export function updateGame(state: GameState, inputs: [FighterInput, FighterInput
         p2.x = mid + dir * FIGHTER_HALF_WIDTH;
       }
 
-      // Only one point per exchange
-      if (!resolveHit(state, 0)) resolveHit(state, 1);
+      // Only one point per exchange; strikes landing on the same frame cancel out
+      const contact0 = strikeContact(state, 0);
+      const contact1 = strikeContact(state, 1);
+      if (contact0 !== null && contact1 !== null) clash(state);
+      else if (contact0 !== null) applyHit(state, 0, contact0);
+      else if (contact1 !== null) applyHit(state, 1, contact1);
 
       const before = Math.ceil(state.timeLeft);
       state.timeLeft = Math.max(0, state.timeLeft - 1 / FRAME_RATE);
@@ -765,7 +795,13 @@ export function updateGame(state: GameState, inputs: [FighterInput, FighterInput
       if (after !== before && after <= 5 && after > 0) state.events.push({ type: 'tick' });
 
       if (state.phase === 'fighting' && state.timeLeft <= 0) {
-        endBout(state, judgeDecision(state));
+        const winner = judgeDecision(state);
+        if (winner !== null) {
+          endBout(state, winner);
+        } else {
+          state.events.push({ type: 'draw' });
+          startBout(state); // same bout number: bow and fight it again
+        }
       }
       break;
     }

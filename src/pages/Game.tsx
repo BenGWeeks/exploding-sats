@@ -274,7 +274,8 @@ export function Game() {
           flashRef.current = { who: e.who === 0 ? 1 : 0, until: performance.now() + 160 };
           break;
         case 'thud': if (!muted) fistAudio.playThud(); break;
-        case 'block': if (!muted) fistAudio.playBlock(); break;
+        case 'block': case 'clash': if (!muted) fistAudio.playBlock(); break;
+        case 'draw': showBanner('DRAW', 1500); break;
         case 'point':
           if (!muted) fistAudio.playPoint(!!e.full);
           showBanner(e.full ? 'FULL POINT' : 'HALF POINT', 900);
