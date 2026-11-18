@@ -23,9 +23,9 @@ const RELAYS = [
 ];
 
 const PROFILE = {
-  name: 'Way of the Exploding Sats',
+  name: 'Exploding Sats',
   picture: 'https://www.explodingsats.com/apple-touch-icon.png',
-  about: 'Way of the Exploding Sats - a tribute to the 1985 karate classic. Pay 21 sats to play. Publish your high scores to the decentralized Nostr leaderboard.',
+  about: 'Exploding Sats - a retro one-on-one karate game where bouts are won on points, paid for with Bitcoin Lightning. Pay 21 sats to play and publish your high scores to the decentralized Nostr leaderboard.',
   website: 'https://www.explodingsats.com',
   lud16: 'space.zappers@bank.weeksfamily.me',
 };

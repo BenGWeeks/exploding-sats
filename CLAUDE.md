@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-Way of the Exploding Sats is a browser tribute to the 1985 C64 karate game "The Way of the Exploding Fist", built with React, TypeScript and Nostr integration. Players pay 21 sats via Lightning to fight, with scores published to Nostr for a decentralized leaderboard. It shares its stack and payment/leaderboard code with Space Zappers (spacezappers.com).
+Exploding Sats is a retro one-on-one karate game for the browser where bouts are won on points, paid for with Bitcoin Lightning. It is built with React, TypeScript and Nostr integration. Players pay 21 sats via Lightning to fight, with scores published to Nostr for a decentralized leaderboard. It shares its stack and payment/leaderboard code with Space Zappers (spacezappers.com).
 
 ## Tech Stack
 
@@ -39,10 +39,10 @@ Always run `npm run test` after making changes.
 ## Architecture
 
 ### Game
-- `src/lib/fistEngine.ts` - pure, deterministic rules engine stepped at 60 Hz. Move table (`MOVES`), the C64 control chart (`moveForInput`), hit judging, knockdowns, bout/grade progression, CPU AI (`aiProfile`, `cpuInput`), bull bonus round and the attract-mode demo. Emits `GameEvent`s for audio/UI.
-- `src/lib/fighterSprites.ts` - the 44 original fighter poses decoded from the BBC Micro version's sprite tables (36x72, 2-bit MODE 5 pixels, drawn 2 px wide). Generated data: do not hand-edit.
-- `src/lib/fighterAnimation.ts` - per-move sprite sequences and timings following the original frame tables; every sequence must sum to the move's `frames` (tested).
-- `src/lib/fistRenderer.ts` - draws the 320x200 world in the C64 palette: four cached arenas, the sensei judge, the fighters (sprites recoloured to white/red gis, cached per colour scheme), bull and HUD icons. `hudTexts` returns the HUD text layout.
+- `src/lib/fistEngine.ts` - pure, deterministic rules engine stepped at 60 Hz. Move table (`MOVES`), the joystick control chart (`moveForInput`), hit judging, knockdowns, bout/grade progression, CPU AI (`aiProfile`, `cpuInput`), bull bonus round and the attract-mode demo. Emits `GameEvent`s for audio/UI.
+- `src/lib/fighterSprites.ts` - fighter pose data. Generated data: do not hand-edit.
+- `src/lib/fighterAnimation.ts` - per-move sprite sequences and timings; every sequence must sum to the move's `frames` (tested).
+- `src/lib/fistRenderer.ts` - draws the 320x200 world in a 16-colour retro palette: four cached arenas, the sensei judge, the fighters (sprites recoloured to white/red gis, cached per colour scheme), bull and HUD icons. `hudTexts` returns the HUD text layout.
 - `src/components/FistCanvas.tsx` - renders the world offscreen and scales it 3x with pixel snapping, drawing HUD text on top. Reads engine state from a ref every frame (no React re-render per frame).
 - `src/lib/fistAudio.ts` - Web Audio synthesis: kiai, crack, thud, block, points, music.
 - `src/pages/Game.tsx` - game loop (fixed step), keyboard/gamepad/touch input, payment flow, leaderboard, share, dialogs.
@@ -63,7 +63,7 @@ Always run `npm run test` after making changes.
 ### Provider Hierarchy (App.tsx)
 QueryClientProvider -> AppProvider -> NostrProvider -> NWCProvider -> UnheadProvider
 
-## Game Rules (keep faithful to the C64 original)
+## Game Rules
 - Direction alone: walk, jump, crouch, high punch (up-fwd), jab punch (down-fwd), low punch (crouch then fwd), forward somersault (up-back), backward somersault (down-back). Holding back blocks automatically.
 - Direction + fire: flying kick (up), high kick (up-fwd), mid kick (fwd), jab kick (down-fwd), forward sweep (down), backward sweep (down-back), roundhouse (back, hold fire; release early = about-face), high back kick (up-back).
 - Every landed blow knocks the opponent down; full point for a clean hit, half for a poor one. First to 2 full points wins the bout. 30 second clock; judge decides on time-out. Time bonus 100/sec.
