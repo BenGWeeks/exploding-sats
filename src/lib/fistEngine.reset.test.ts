@@ -27,7 +27,7 @@ function scoreHalfPoint(): GameState {
 }
 
 describe('reset between points', () => {
-  it('fighting resumes within about 1.75 s of the hit, on the marks, with no bow', () => {
+  it('fighting resumes within 2 s of the hit (about 1.7 s), on the marks, with no bow', () => {
     const state = scoreHalfPoint();
     const events: GameEvent[] = [];
     let frames = 0;
@@ -39,7 +39,7 @@ describe('reset between points', () => {
       frames++;
     }
     expect(state.phase).toBe('fighting');
-    expect(frames).toBeLessThanOrEqual(1.75 * FRAME_RATE);
+    expect(frames).toBeLessThanOrEqual(2 * FRAME_RATE); // was ~3.4 s; leaves room for a hit-stop
     expect(bowed).toBe(false);
     expect(state.fighters[0].x).toBe(START_X_P1);
     expect(state.fighters[1].x).toBe(START_X_P2);
