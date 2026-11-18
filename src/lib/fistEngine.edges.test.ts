@@ -24,6 +24,13 @@ function fightingState(): GameState {
 /** Player 1 back-flip input (down-back while facing right), repeated */
 const SOMERSAULT_BACK: FighterInput = { dir: { x: -1, y: 1 }, fire: false };
 
+/** Hold the back-flip until it starts (some inputs take a few frames to commit) */
+function startSomersault(state: GameState) {
+  let guard = 0;
+  while (state.fighters[0].move !== 'somersault_back' && guard++ < 10) updateGame(state, [SOMERSAULT_BACK, NEUTRAL_INPUT]);
+  expect(state.fighters[0].move).toBe('somersault_back');
+}
+
 describe('somersault', () => {
   it('is untouchable in the air but can be hit on the landing', () => {
     const state = fightingState();
@@ -32,7 +39,7 @@ describe('somersault', () => {
     let sawAir = false;
     let sawLanding = false;
     let guard = 0;
-    updateGame(state, [SOMERSAULT_BACK, NEUTRAL_INPUT]);
+    startSomersault(state);
     while (f.move === 'somersault_back' && guard++ < 100) {
       if (f.airY > 0) { sawAir = true; expect(canBeHit(f)).toBe(false); }
       else { sawLanding = true; expect(canBeHit(f)).toBe(true); }
@@ -74,7 +81,7 @@ describe('somersault', () => {
     const state = fightingState();
     const f = state.fighters[0];
     f.x = 200;
-    updateGame(state, [SOMERSAULT_BACK, NEUTRAL_INPUT]);
+    startSomersault(state);
     let guard = 0;
     while (f.move === 'somersault_back' && guard++ < 100) updateGame(state, IDLE);
     const holdBack: FighterInput = { dir: { x: -1, y: 0 }, fire: false };
