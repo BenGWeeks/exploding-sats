@@ -14,6 +14,8 @@
  * match is over. The clock runs from 30 seconds; remaining time pays 100 points a second.
  */
 
+import { cpuInput, createCpuBrain, type CpuBrain } from './fistAi';
+
 export const WORLD_WIDTH = 320;
 export const WORLD_HEIGHT = 200;
 export const GROUND_Y = 172; // y of the fighters' feet
@@ -255,9 +257,8 @@ export interface GameState {
   events: GameEvent[];
   frameCount: number;
   rng: () => number;
-  /** the input each CPU fighter keeps holding between decisions, and until which frame */
-  cpuHold: [FighterInput, FighterInput];
-  cpuHoldUntil: [number, number];
+  /** what each CPU fighter has seen, remembers and plans (fistAi.ts) */
+  cpu: [CpuBrain, CpuBrain];
 }
 
 function createFighter(x: number, facing: 1 | -1, isCpu: boolean, colour: 'white' | 'red'): Fighter {
@@ -308,8 +309,7 @@ export function createInitialState(options: GameOptions = {}): GameState {
     events: [],
     frameCount: 0,
     rng: makeRng(options.seed),
-    cpuHold: [NEUTRAL_INPUT, NEUTRAL_INPUT],
-    cpuHoldUntil: [0, 0],
+    cpu: [createCpuBrain(), createCpuBrain()],
   };
 }
 
@@ -393,100 +393,11 @@ function beginFighting(state: GameState) {
 }
 
 // ---------------------------------------------------------------------------
-// CPU opponent - reacts to distance and to the player's move, favouring flying
-// kicks and sweeps like the original. Gets sharper with every Dan.
+// CPU opponent: see fistAi.ts. It plans from the move table below, reacts after
+// a grade-scaled delay and reads repeated moves. Gets sharper with every Dan.
 // ---------------------------------------------------------------------------
 
-export interface AiProfile {
-  reaction: number;    // frames between decisions
-  aggression: number;  // probability to attack when in range
-  evade: number;       // probability to counter an incoming attack
-  advance: number;     // probability to close distance
-}
-
-export function aiProfile(grade: number): AiProfile {
-  const g = Math.min(grade, 10) / 10;
-  return {
-    reaction: Math.round(24 - g * 16),
-    aggression: 0.42 + g * 0.45,
-    evade: 0.12 + g * 0.65,
-    advance: 0.55 + g * 0.3,
-  };
-}
-
-/** Movement inputs (walk, crouch, block) are held until the next decision. */
-function isMovementInput(input: FighterInput): boolean {
-  return !input.fire && input.dir.y !== -1 && !(input.dir.y === 1 && input.dir.x !== 0);
-}
-
-/** Frames a CPU keeps the stick held after choosing an attack, so kicks commit (a roundhouse needs fire held). */
-const CPU_ATTACK_HOLD = 9; // shorter than the 10-frame about-face so a turn never re-triggers
-
-function cpuInput(state: GameState, index: 0 | 1, me: Fighter, foe: Fighter): FighterInput {
-  // Decide every N frames; in between keep the joystick where it was, like a human would
-  const profile = aiProfile(state.demo ? 4 : state.grade);
-  if ((state.frameCount + index * 7) % profile.reaction !== 0) {
-    return state.frameCount < state.cpuHoldUntil[index] ? state.cpuHold[index] : NEUTRAL_INPUT;
-  }
-  // Decisions are facing-relative (forward/back); convert to joystick (screen) directions
-  const relative = cpuDecision(state, me, foe, profile);
-  const decision: FighterInput = { dir: { x: (relative.dir.x * me.facing) as -1 | 0 | 1, y: relative.dir.y }, fire: relative.fire };
-  state.cpuHold[index] = decision;
-  state.cpuHoldUntil[index] = state.frameCount + (isMovementInput(decision) ? profile.reaction : CPU_ATTACK_HOLD);
-  return decision;
-}
-
-function cpuDecision(state: GameState, me: Fighter, foe: Fighter, profile: AiProfile): FighterInput {
-  const dist = (foe.x - me.x) * me.facing; // positive = foe in front
-  const absDist = Math.abs(dist);
-  const rng = state.rng;
-
-  // Foe is behind us: about-face (or a high back kick if close)
-  if (dist < -6) {
-    if (absDist < 30 && rng() < profile.aggression) return { dir: { x: -1, y: -1 }, fire: true };
-    return { dir: { x: 0, y: 0 }, fire: true };
-  }
-
-  // Counter an incoming attack
-  const foeDef = MOVES[foe.move];
-  if (foeDef.strike && foe.frame < (foeDef.activeFrom ?? 0) && absDist < 44 && rng() < profile.evade) {
-    if (foeDef.height === 'low') return { dir: { x: 0, y: -1 }, fire: false };   // jump the sweep
-    if (foe.move === 'flying_kick') return { dir: { x: 0, y: 1 }, fire: false };  // duck the flying kick
-    if (foeDef.height === 'high') return rng() < 0.5 ? { dir: { x: 0, y: 1 }, fire: false } : { dir: { x: -1, y: 0 }, fire: false };
-    return rng() < 0.5 ? { dir: { x: -1, y: 0 }, fire: false } : { dir: { x: -1, y: 1 }, fire: false }; // block or flip away
-  }
-
-  if (absDist < 24) {
-    if (rng() < profile.aggression) {
-      const r = rng();
-      if (r < 0.3) return { dir: { x: 1, y: 1 }, fire: false };   // jab punch
-      if (r < 0.55) return { dir: { x: 0, y: 1 }, fire: true };   // sweep
-      if (r < 0.75) return { dir: { x: 1, y: 1 }, fire: true };   // jab kick
-      return { dir: { x: 1, y: -1 }, fire: false };               // high punch
-    }
-    const r = rng();
-    if (r < 0.4) return { dir: { x: -1, y: 0 }, fire: false };    // step back / block
-    if (r < 0.6) return { dir: { x: 0, y: 1 }, fire: false };     // crouch
-    return NEUTRAL_INPUT;
-  }
-  if (absDist < 38) {
-    if (rng() < profile.aggression) {
-      const r = rng();
-      if (r < 0.3) return { dir: { x: 1, y: 0 }, fire: true };    // mid kick
-      if (r < 0.55) return { dir: { x: 1, y: -1 }, fire: true };  // high kick
-      if (r < 0.75) return { dir: { x: 0, y: 1 }, fire: true };   // sweep
-      return { dir: { x: -1, y: 0 }, fire: true };                // roundhouse
-    }
-    return rng() < 0.6 ? { dir: { x: 1, y: 0 }, fire: false } : NEUTRAL_INPUT;
-  }
-  if (absDist < 80 && rng() < profile.aggression * 0.4) {
-    return { dir: { x: 0, y: -1 }, fire: true }; // flying kick
-  }
-  if (rng() < profile.advance) {
-    return rng() < 0.1 ? { dir: { x: -1, y: -1 }, fire: false } /* forward somersault */ : { dir: { x: 1, y: 0 }, fire: false };
-  }
-  return NEUTRAL_INPUT;
-}
+export { aiProfile, type AiProfile } from './fistAi';
 
 // ---------------------------------------------------------------------------
 // Fighter update
