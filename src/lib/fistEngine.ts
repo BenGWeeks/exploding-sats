@@ -33,6 +33,8 @@ export const FRAME_RATE = 60;
 export const SCORE_TIME_BONUS_PER_SECOND = 100;
 export const SCORE_BULL_BONUS = 2000;
 export const SCORE_BULL_LOW_PUNCH_BONUS = 3000;
+/** How long the judge holds up a half or full point call (frames) */
+export const JUDGE_POINT_FRAMES = 60;
 
 export const FIGHTER_HALF_WIDTH = 14;
 export const STAND_HEIGHT = 52;
@@ -230,6 +232,13 @@ export interface GameEvent {
   amount?: number;
 }
 
+/**
+ * What the judge is signalling while judgeSignal > 0:
+ * 'half' / 'full' - a point for lastPointWinner; 'bout' - the bout for boutWinner;
+ * 'bull' - player 1 stopped the bull.
+ */
+export type JudgeCall = 'half' | 'full' | 'bout' | 'bull';
+
 export interface GameState {
   fighters: [Fighter, Fighter];
   phase: Phase;
@@ -250,6 +259,8 @@ export interface GameState {
   bull: Bull | null;
   /** frames remaining of the judge raising the winner's paddle */
   judgeSignal: number;
+  /** the judge's current call; null when judgeSignal is 0 */
+  judgeCall: JudgeCall | null;
   gameOver: boolean;
   isPaused: boolean;
   events: GameEvent[];
@@ -303,6 +314,7 @@ export function createInitialState(options: GameOptions = {}): GameState {
     boutWinner: null,
     bull: null,
     judgeSignal: 0,
+    judgeCall: null,
     gameOver: false,
     isPaused: false,
     events: [],
@@ -382,6 +394,7 @@ function startBout(state: GameState) {
   state.boutWinner = null;
   state.lastPointWinner = null;
   state.judgeSignal = 0;
+  state.judgeCall = null;
   bowBoth(state);
 }
 
@@ -611,6 +624,8 @@ function resolveHit(state: GameState, attackerIndex: 0 | 1): boolean {
   state.events.push({ type: 'crack', who: attackerIndex, full });
   state.events.push({ type: 'point', who: attackerIndex, full });
   state.lastPointWinner = attackerIndex;
+  state.judgeSignal = JUDGE_POINT_FRAMES;
+  state.judgeCall = full ? 'full' : 'half';
   state.phase = 'point';
   state.phaseTimer = 30;
   return true;
@@ -622,6 +637,7 @@ function endBout(state: GameState, winner: 0 | 1) {
   state.phase = 'bout_over';
   state.phaseTimer = 170;
   state.judgeSignal = 170;
+  state.judgeCall = 'bout';
 
   setMove(a, winner === 0 ? 'victory' : 'defeat', state.events, 0);
   setMove(b, winner === 1 ? 'victory' : 'defeat', state.events, 1);
@@ -687,6 +703,7 @@ function updateBull(state: GameState) {
         state.events.push({ type: 'bull_down' });
         state.events.push({ type: 'bull_bonus', amount: bonus });
         state.judgeSignal = 60;
+        state.judgeCall = 'bull';
       }
     }
 
@@ -728,7 +745,7 @@ export function updateGame(state: GameState, inputs: [FighterInput, FighterInput
   state.events = [];
   if (state.isPaused || state.gameOver) return state;
   state.frameCount++;
-  if (state.judgeSignal > 0) state.judgeSignal--;
+  if (state.judgeSignal > 0 && --state.judgeSignal === 0) state.judgeCall = null;
 
   const [p1, p2] = state.fighters;
 
