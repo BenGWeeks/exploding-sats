@@ -7,12 +7,12 @@
  */
 
 import {
-  GROUND_Y, HUD_HEIGHT, WORLD_WIDTH, WORLD_HEIGHT, gradeName, isAttack,
+  GROUND_Y, HUD_HEIGHT, WORLD_WIDTH, WORLD_HEIGHT, MOVES, gradeName, isAttack, isDown,
   type GameState, type Fighter,
 } from './fistEngine';
 
-import { SPRITES, SPRITE_WIDTH, SPRITE_HEIGHT } from './fighterSprites';
-import { spriteFor } from './fighterAnimation';
+import { spriteData, SPRITE_WIDTH, SPRITE_HEIGHT, SPRITE_ORIGIN, type PoseId } from './fighterSprites';
+import { poseFor, fallStyleFor, type FallStyle } from './fighterAnimation';
 
 interface Point { x: number; y: number }
 
@@ -273,40 +273,35 @@ function drawSensei(ctx: CanvasRenderingContext2D, x: number, y: number, scale: 
 }
 
 // ---------------------------------------------------------------------------
-// Fighters - the original BBC Micro sprites, recoloured to the C64 gis
+// Fighters - original rig-drawn poses (fighterSprites.ts), recoloured per fighter
 // ---------------------------------------------------------------------------
 
-/** A MODE 5 pixel is twice as wide as it is tall */
+/** A fighter pixel is twice as wide as it is tall */
 const SPRITE_PX_W = 2;
-/** Horizontal centre of the standing body within the 36-pixel sprite, in world px */
-const SPRITE_ANCHOR_X = 24;
-/** The shadow row sits just below the ground line */
-const SPRITE_BOTTOM_OFFSET = 2;
 
 type Scheme = 'white' | 'red' | 'flash';
 
-const SCHEMES: Record<Scheme, [string, string, string]> = {
-  // gi, skin, hair/shadow
-  white: ['#f4f4f4', SKIN, C64.black],
-  red: ['#b93a2a', SKIN, C64.black],
-  flash: [C64.yellow, C64.white, C64.black],
+const SCHEMES: Record<Scheme, [string, string, string, string]> = {
+  // gi, skin, hair/belt/edge, gi in shade (far limbs)
+  white: ['#f4f4f4', SKIN, C64.black, '#bdbdbd'],
+  red: ['#b93a2a', SKIN, C64.black, '#7e2519'],
+  flash: [C64.yellow, C64.white, C64.black, C64.yellow],
 };
 
 const spriteCache = new Map<string, HTMLCanvasElement>();
 
-function spriteCanvas(index: number, scheme: Scheme): HTMLCanvasElement {
-  const key = `${index}:${scheme}`;
+function spriteCanvas(pose: PoseId, scheme: Scheme): HTMLCanvasElement {
+  const key = `${pose}:${scheme}`;
   const cached = spriteCache.get(key);
   if (cached) return cached;
-  const data = SPRITES[index] ?? SPRITES[0];
+  const data = spriteData(pose);
   const canvas = document.createElement('canvas');
   canvas.width = SPRITE_WIDTH * SPRITE_PX_W;
   canvas.height = SPRITE_HEIGHT;
   const ctx = canvas.getContext('2d')!;
   const colours = SCHEMES[scheme];
-  for (let r = 0; r < data.rows.length; r++) {
-    const row = data.rows[r];
-    const y = data.top + r;
+  for (let y = 0; y < data.rows.length; y++) {
+    const row = data.rows[y];
     for (let x = 0; x < SPRITE_WIDTH; x++) {
       const v = row.charCodeAt(x) - 48;
       if (v === 0) continue;
@@ -318,18 +313,32 @@ function spriteCanvas(index: number, scheme: Scheme): HTMLCanvasElement {
   return canvas;
 }
 
+/** How each fighter is falling, remembered from the blow that put them down */
+const fallStyles = new WeakMap<Fighter, FallStyle>();
+
+function trackFall(f: Fighter, other: Fighter | null) {
+  if (!isDown(f.move)) {
+    fallStyles.delete(f);
+    return;
+  }
+  if (fallStyles.has(f)) return;
+  // The attacker is still in the move that landed; the bonus-round charge tramples forwards
+  const height = other && isAttack(other.move) ? MOVES[other.move].height : other ? undefined : 'low';
+  fallStyles.set(f, fallStyleFor(height));
+}
+
 /** Draw a fighter with feet at (x, GROUND_Y - airY) */
 export function drawFighter(ctx: CanvasRenderingContext2D, f: Fighter, flash = false) {
-  const anim = spriteFor(f.move, f.frame);
+  const anim = poseFor(f.move, f.frame, { fall: fallStyles.get(f), airY: f.airY });
   const scheme: Scheme = flash ? 'flash' : f.colour;
-  const image = spriteCanvas(anim.sprite, scheme);
+  const image = spriteCanvas(anim.pose, scheme);
   const facing = anim.flip ? -f.facing : f.facing;
 
   ctx.save();
   ctx.imageSmoothingEnabled = false;
-  ctx.translate(Math.round(f.x), Math.round(GROUND_Y - f.airY + SPRITE_BOTTOM_OFFSET - SPRITE_HEIGHT));
+  ctx.translate(Math.round(f.x), Math.round(GROUND_Y - f.airY));
   ctx.scale(facing, 1);
-  ctx.drawImage(image, -SPRITE_ANCHOR_X, 0);
+  ctx.drawImage(image, SPRITE_ORIGIN.x, SPRITE_ORIGIN.y);
   ctx.restore();
 }
 
@@ -445,6 +454,8 @@ export function renderWorld(ctx: CanvasRenderingContext2D, state: GameState, fla
 
   // Draw the fighter further from the camera first (the one lying down goes behind)
   const [a, b] = state.fighters;
+  trackFall(a, state.bull ? null : b);
+  trackFall(b, a);
   const order: Fighter[] = a.move === 'lying' || a.move === 'fall' ? [a, b] : b.move === 'lying' || b.move === 'fall' ? [b, a] : a.x <= b.x ? [b, a] : [a, b];
   for (const f of order) {
     if (f.x < -50) continue;
