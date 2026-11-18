@@ -5,7 +5,7 @@ WORKDIR /app
 COPY package*.json ./
 RUN npm ci --only=production
 
-COPY index.js ./
+COPY index.js lightning.js scores.js ./
 
 ENV PORT=3002
 # Standalone container: listen on all interfaces (the combined image uses loopback)

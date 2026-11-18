@@ -52,11 +52,11 @@ Always run `npm run test` after making changes.
 - `src/components/NostrProvider.tsx`, `src/hooks/useNostrPublish.ts`
 - `src/hooks/useGameScores.ts` - leaderboard query (kind 30762 by game pubkey), `GAME_ID = 'exploding-sats'`
 - `src/components/LeaderboardEntry.tsx` - shows player name and grade
-- `score-service/index.js` - signs kind 30762 with `GAME_NSEC`. `level` = grade index (0 = Novice)
+- `score-service/index.js` - signs kind 30762 with `GAME_NSEC`. `level` = grade index (0 = Novice). `/publish-score` is validated by `score-service/scores.js` and rate limited per IP, but not authenticated
 
 ### Lightning Payment Flow
 1. "Pay 21 sats" -> `useLNbitsPayment` calls `POST /api/lightning/invoice`; `score-service/lightning.js` resolves `LIGHTNING_ADDRESS` via LNURL-pay server-side and checks the invoice amount
-2. The browser polls `GET /api/lightning/payments/<hash>` every 2s; the score service checks LNbits (`LNBITS_URL` + `LNBITS_INVOICE_KEY`, runtime env only) and returns `{ paid }`
+2. The browser polls `GET /api/lightning/payments/<hash>` every 2s; the score service checks LNbits (`LNBITS_URL` + `LNBITS_INVOICE_KEY`, runtime env only) and returns `{ paid }`, but only for invoices it issued itself (kept in memory for an hour; unknown hashes get a 404)
 3. On paid, the match starts. NWC and WebLN wallets pay in one click.
 4. `useLightningHealth` polls `GET /api/lightning/health` (server probes the lnurlp URL, 8s timeout, cached 60s). While `unavailable`, the pay buttons are disabled with a friendly notice; a failed health check never blocks play.
 
