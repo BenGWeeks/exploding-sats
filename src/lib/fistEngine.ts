@@ -136,13 +136,16 @@ export const MOVES: Record<MoveId, MoveDef> = {
   high_punch: { id: 'high_punch', frames: 22, activeFrom: 7, activeTo: 11, strike: { x: 22, y: -43, reach: 6 }, height: 'high', value: 300, kiai: true },
   low_punch: { id: 'low_punch', frames: 20, activeFrom: 6, activeTo: 10, strike: { x: 37, y: -22, reach: 6 }, height: 'low', value: 200, kiai: true },
   // Kicks (fire held)
-  flying_kick: { id: 'flying_kick', frames: 46, activeFrom: 12, activeTo: 32, strike: { x: 45, y: -44, reach: 8 }, height: 'high', value: 800, travel: 64, launch: 3.4, kiai: true },
+  // Flying kick: strikes from the top of the jump (airborne 21 down to 11 px) and stops before landing on frame 24;
+  // the foot passes over a crouch
+  flying_kick: { id: 'flying_kick', frames: 46, activeFrom: 12, activeTo: 20, strike: { x: 44, y: -31, reach: 8 }, height: 'high', value: 800, travel: 64, launch: 3.4, kiai: true },
   high_kick: { id: 'high_kick', frames: 30, activeFrom: 11, activeTo: 16, strike: { x: 41, y: -48, reach: 7 }, height: 'high', value: 600, kiai: true },
   mid_kick: { id: 'mid_kick', frames: 28, activeFrom: 10, activeTo: 15, strike: { x: 47, y: -31, reach: 7 }, height: 'mid', value: 500, kiai: true },
   jab_kick: { id: 'jab_kick', frames: 18, activeFrom: 5, activeTo: 8, strike: { x: 37, y: -14, reach: 6 }, height: 'mid', value: 300, kiai: true },
   sweep: { id: 'sweep', frames: 32, activeFrom: 11, activeTo: 19, strike: { x: 45, y: -4, reach: 9 }, height: 'low', value: 400, unblockable: true, travel: 6, kiai: true },
   back_sweep: { id: 'back_sweep', frames: 34, activeFrom: 12, activeTo: 20, strike: { x: -45, y: -4, reach: 9 }, height: 'low', value: 400, unblockable: true, kiai: true },
-  roundhouse: { id: 'roundhouse', frames: 44, activeFrom: 18, activeTo: 26, strike: { x: 47, y: -30, reach: 10 }, height: 'high', value: 800, travel: 10, flips: true, kiai: true, abortToTurnBefore: 8 },
+  // Roundhouse: reaches about as far as the other leg techniques once its step-in is counted
+  roundhouse: { id: 'roundhouse', frames: 44, activeFrom: 18, activeTo: 26, strike: { x: 38, y: -30, reach: 8 }, height: 'high', value: 800, travel: 10, flips: true, kiai: true, abortToTurnBefore: 8 },
   high_back_kick: { id: 'high_back_kick', frames: 30, activeFrom: 11, activeTo: 16, strike: { x: -26, y: -44, reach: 8 }, height: 'high', value: 600, kiai: true },
   // Reactions
   fall: { id: 'fall', frames: 44, travel: -36, invulnerable: true },
