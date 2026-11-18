@@ -23,7 +23,7 @@ RUN apk add --no-cache nginx
 WORKDIR /score-service
 COPY score-service/package*.json ./
 RUN npm ci --only=production
-COPY score-service/index.js score-service/lightning.js ./
+COPY score-service/index.js score-service/lightning.js score-service/scores.js ./
 
 # Lightning payments are created and checked server-side by the score service.
 # LNBITS_INVOICE_KEY must be supplied at runtime (docker compose environment),

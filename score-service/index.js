@@ -1,7 +1,14 @@
 import http from 'node:http';
 import WebSocket from 'ws';
 import { nip19, finalizeEvent, SimplePool } from 'nostr-tools';
-import { createLightningService, createLightningRouter } from './lightning.js';
+import {
+  createLightningService,
+  createLightningRouter,
+  createRateLimiter,
+  clientIp,
+  RATE_LIMITS,
+} from './lightning.js';
+import { validateScoreSubmission } from './scores.js';
 
 // Polyfill WebSocket for Node.js
 globalThis.WebSocket = WebSocket;
@@ -156,7 +163,8 @@ const lightning = createLightningService({
 if (!lightning.configured) {
   console.error('LIGHTNING_ADDRESS / LNBITS_INVOICE_KEY not set - Lightning payments will report unavailable');
 }
-const handleLightning = createLightningRouter({ service: lightning, parseBody });
+const rateLimiter = createRateLimiter();
+const handleLightning = createLightningRouter({ service: lightning, parseBody, rateLimiter });
 
 // HTTP server
 const server = http.createServer(async (req, res) => {
@@ -202,33 +210,35 @@ const server = http.createServer(async (req, res) => {
       sendJson(res, 503, { error: 'Score publishing is not configured' });
       return;
     }
+    // Not authentication: just stops one client flooding the relays with signed events.
+    const wait = rateLimiter(`score:${clientIp(req)}`, RATE_LIMITS.score);
+    if (wait) {
+      res.setHeader('Retry-After', String(wait));
+      sendJson(res, 429, { error: 'Too many requests' });
+      return;
+    }
+
+    let body;
     try {
-      const body = await parseBody(req);
+      body = await parseBody(req);
+    } catch {
+      sendJson(res, 400, { error: 'Invalid request body' });
+      return;
+    }
 
-      // Validate required fields
-      if (!body.playerPubkey || typeof body.score !== 'number' || typeof body.level !== 'number') {
-        sendJson(res, 400, { error: 'Missing required fields: playerPubkey, score, level' });
-        return;
-      }
+    const submission = validateScoreSubmission(body, { maxLevel: GRADES.length - 1 });
+    if (submission.error) {
+      sendJson(res, 400, { error: submission.error });
+      return;
+    }
 
-      // Validate playerPubkey is a valid 64-char hex string
-      if (!/^[0-9a-f]{64}$/i.test(body.playerPubkey)) {
-        sendJson(res, 400, { error: 'Invalid playerPubkey: must be 64-character hex string' });
-        return;
-      }
-
-      // Validate score is reasonable (anti-cheat basic check)
-      if (body.score < 0 || body.score > 10000000) {
-        sendJson(res, 400, { error: 'Invalid score value' });
-        return;
-      }
-
-      const result = await publishScore(body);
+    try {
+      const result = await publishScore(submission.value);
       sendJson(res, 200, { success: true, ...result });
-
     } catch (err) {
+      // Detail stays in the log; the caller only learns that it failed.
       console.error('Error publishing score:', err);
-      sendJson(res, 500, { error: err.message });
+      sendJson(res, 500, { error: 'Failed to publish score' });
     }
     return;
   }

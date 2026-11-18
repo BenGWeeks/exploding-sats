@@ -5,7 +5,7 @@
 // read from the runtime environment, and never ends up in the public bundle.
 //
 //   POST /lightning/invoice         { amountSats }       -> { invoice, paymentHash }
-//   GET  /lightning/payments/:hash                         -> { paid }
+//   GET  /lightning/payments/:hash                         -> { paid }, only for invoices issued here
 //   GET  /lightning/health                                 -> { lightning: 'ok' | 'unavailable' }
 //
 // (nginx strips the leading /api, so the browser calls /api/lightning/...)
@@ -22,15 +22,21 @@ export const INVOICE_MEMO = 'Exploding Sats - 21 sats to play';
 const UPSTREAM_TIMEOUT_MS = 8000;
 const HEALTH_CACHE_MS = 60 * 1000;
 const PAYMENT_HASH_RE = /^[0-9a-f]{64}$/;
+// Payment status is only answered for invoices this process issued, so the
+// endpoint cannot be used to look up other payments in the wallet. Invoices are
+// remembered for an hour (the browser stops polling after 10 minutes).
+const TRACK_INVOICE_MS = 60 * 60 * 1000;
+const MAX_TRACKED_INVOICES = 5000;
 
 // Fixed one-minute windows. Status polling runs every 2s (30/min per invoice), so
 // it is limited per IP + payment hash (players behind one carrier NAT don't starve
 // each other), with a much higher per-IP ceiling to protect LNbits.
-const RATE_LIMITS = {
+export const RATE_LIMITS = {
   invoice: 10, // per IP
   payment: 60, // per IP + hash
   paymentsPerIp: 600, // per IP, all hashes
   health: 60, // per IP
+  score: 10, // per IP, score publishing (see index.js)
 };
 
 export class UpstreamError extends Error {}
@@ -63,6 +69,7 @@ export function createLightningService({
   const lnurlpUrl = address ? `https://${address.domain}/.well-known/lnurlp/${encodeURIComponent(address.user)}` : null;
   const configured = Boolean(address && baseUrl && invoiceKey);
 
+  const issued = new Map(); // paymentHash -> { forgetAt, paid }
   let healthCache = null; // { status, expires }
   let healthInFlight = null;
 
@@ -126,8 +133,21 @@ export function createLightningService({
     return healthInFlight;
   }
 
+  function pruneIssued() {
+    const t = now();
+    for (const [hash, entry] of issued) if (entry.forgetAt <= t) issued.delete(hash);
+  }
+
+  // Whether this service issued the invoice (and still remembers it).
+  function isIssued(paymentHash) {
+    const entry = issued.get(paymentHash);
+    return Boolean(entry && entry.forgetAt > now());
+  }
+
   async function createInvoice(amountSats) {
     if (!configured) throw new UpstreamError('Lightning is not configured');
+    pruneIssued();
+    if (issued.size >= MAX_TRACKED_INVOICES) throw new UpstreamError('Too many open invoices');
     try {
       const payRequest = await resolvePayRequest();
       const amountMsat = amountSats * 1000;
@@ -162,6 +182,7 @@ export function createLightningService({
         throw new UpstreamError('Invoice amount does not match');
       }
 
+      issued.set(decoded.paymentHash, { forgetAt: now() + TRACK_INVOICE_MS, paid: false });
       return { invoice: data.pr, paymentHash: decoded.paymentHash };
     } catch (err) {
       // Re-probe on the next health check so the UI can show the banner quickly.
@@ -170,8 +191,12 @@ export function createLightningService({
     }
   }
 
+  // Only call for hashes that pass isIssued(): anything else is simply not paid.
   async function isPaid(paymentHash) {
     if (!configured) throw new UpstreamError('Lightning is not configured');
+    if (!isIssued(paymentHash)) return false;
+    const entry = issued.get(paymentHash);
+    if (entry.paid) return true;
     let response;
     try {
       response = await fetchImpl(`${baseUrl}/api/v1/payments/${paymentHash}`, {
@@ -191,10 +216,12 @@ export function createLightningService({
       throw new UpstreamError('Invalid JSON');
     }
     // LNbits reports "paid": true, or "status": "success" in newer versions.
-    return data?.paid === true || data?.status === 'success';
+    const paid = data?.paid === true || data?.status === 'success';
+    if (paid) entry.paid = true; // settled invoices never go back: no need to ask again
+    return paid;
   }
 
-  return { configured, health, createInvoice, isPaid };
+  return { configured, health, createInvoice, isIssued, isPaid };
 }
 
 // Fixed-window per-key counter. Small and in-memory: enough to stop a single
@@ -220,7 +247,7 @@ export function createRateLimiter({ now = () => Date.now(), windowMs = 60 * 1000
   };
 }
 
-function clientIp(req) {
+export function clientIp(req) {
   // nginx (in the same container) sets X-Real-IP; only trust it from loopback.
   const remote = req.socket?.remoteAddress || '';
   const isLoopback = remote === '127.0.0.1' || remote === '::1' || remote === '::ffff:127.0.0.1';
@@ -285,6 +312,11 @@ export function createLightningRouter({ service, parseBody, rateLimiter = create
       const hash = paymentMatch[1];
       if (!PAYMENT_HASH_RE.test(hash)) {
         sendJson(res, 400, { error: 'Invalid payment hash' });
+        return true;
+      }
+      // Unknown hashes never reach LNbits and spend no rate-limit budget.
+      if (!service.isIssued(hash)) {
+        sendJson(res, 404, { error: 'Unknown or expired invoice' });
         return true;
       }
       if (limited(['payment', `${ip}:${hash}`], ['paymentsPerIp', ip])) return true;

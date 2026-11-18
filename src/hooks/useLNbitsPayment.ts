@@ -32,6 +32,9 @@ export class LightningUnavailableError extends Error {
 }
 
 const SERVER_UNREACHABLE_MESSAGE = "Couldn't reach the game server. Check your connection and try again.";
+const INVOICE_EXPIRED_MESSAGE = 'This invoice has expired. Please request a new one.';
+
+type PaymentStatus = 'paid' | 'pending' | 'unknown';
 
 /**
  * Hook to create invoices and poll for payment status via the game's own API
@@ -63,21 +66,23 @@ export function useLNbitsPayment({ onPaid }: UseLNbitsPaymentOptions = {}): UseL
 
   useEffect(() => stopPolling, [stopPolling]);
 
-  const checkPaymentStatus = useCallback(async (hash: string): Promise<boolean> => {
+  const checkPaymentStatus = useCallback(async (hash: string): Promise<PaymentStatus> => {
     try {
       const response = await fetch(`${LIGHTNING_API}/payments/${hash}`, {
         signal: AbortSignal.timeout(10000),
       });
+      // The server only answers for invoices it issued and still remembers
+      if (response.status === 404) return 'unknown';
       if (!response.ok) {
         // Transient (LNbits down, rate limited...): treat as not paid yet and keep polling
         console.warn('[Payment] Status check failed:', response.status);
-        return false;
+        return 'pending';
       }
       const data: { paid?: boolean } = await response.json();
-      return data.paid === true;
+      return data.paid === true ? 'paid' : 'pending';
     } catch (err) {
       console.warn('[Payment] Error checking status:', err);
-      return false;
+      return 'pending';
     }
   }, []);
 
@@ -86,12 +91,17 @@ export function useLNbitsPayment({ onPaid }: UseLNbitsPaymentOptions = {}): UseL
     setIsPolling(true);
 
     pollingRef.current = setInterval(async () => {
-      const paid = await checkPaymentStatus(hash);
-      if (paid && pollingRef.current) {
+      const status = await checkPaymentStatus(hash);
+      if (!pollingRef.current) return;
+      if (status === 'paid') {
         stopPolling();
         setIsPaid(true);
         setIsPolling(false);
         onPaidRef.current?.();
+      } else if (status === 'unknown') {
+        stopPolling();
+        setIsPolling(false);
+        setError(INVOICE_EXPIRED_MESSAGE);
       }
     }, 2000);
 

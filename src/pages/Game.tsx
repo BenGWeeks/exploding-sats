@@ -243,6 +243,7 @@ export function Game() {
     createInvoice: createLNbitsInvoice,
     isPaid: paymentConfirmed,
     isPolling,
+    error: paymentError,
     reset: resetPayment,
   } = useLNbitsPayment({
     onPaid: () => {
@@ -1154,7 +1155,7 @@ export function Game() {
                       <>
                         <div className={`bg-yellow-900/20 border border-yellow-600 rounded ${isMobile ? 'p-1' : 'p-3'}`}>
                           <div className={`text-yellow-400 animate-pulse ${isMobile ? 'text-[10px]' : 'text-sm'}`}>⏳ WAITING FOR PAYMENT...</div>
-                          <div className={`text-yellow-600 mt-1 ${isMobile ? 'text-[8px]' : 'text-xs'}`}>{isPolling ? 'Auto-detecting payment' : 'Checking...'}</div>
+                          <div className={`text-yellow-600 mt-1 ${isMobile ? 'text-[8px]' : 'text-xs'}`}>{paymentError ?? (isPolling ? 'Auto-detecting payment' : 'Checking...')}</div>
                         </div>
                         <div className={`bg-black rounded border border-amber-700 ${isMobile ? 'p-1' : 'p-3'}`}>
                           <div className={`text-amber-500 break-all ${isMobile ? 'text-[8px]' : 'text-xs'}`}>{lightningInvoice.slice(0, isMobile ? 80 : 60)}...</div>

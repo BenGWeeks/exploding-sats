@@ -63,8 +63,10 @@ function jsonResponse(status, body) {
   return new Response(JSON.stringify(body), { status, headers: { 'Content-Type': 'application/json' } });
 }
 
-function fakeLnbits({ lnurlp = 'ok', invoiceSats = 21, payment = { paid: false } } = {}) {
+// `hashes`: payment hash of each successive invoice (the last one repeats).
+function fakeLnbits({ lnurlp = 'ok', invoiceSats = 21, payment = { paid: false }, hashes = [HASH] } = {}) {
   const calls = [];
+  let issuedCount = 0;
   const fetchImpl = async (url, options = {}) => {
     calls.push({ url: String(url), headers: options.headers || {} });
     const u = new URL(url);
@@ -81,7 +83,8 @@ function fakeLnbits({ lnurlp = 'ok', invoiceSats = 21, payment = { paid: false }
       });
     }
     if (u.pathname === '/lnurlp/api/v1/lnurl/cb/abc') {
-      return jsonResponse(200, { pr: fakeInvoice(invoiceSats, HASH), routes: [] });
+      const hash = hashes[Math.min(issuedCount++, hashes.length - 1)];
+      return jsonResponse(200, { pr: fakeInvoice(invoiceSats, hash), routes: [] });
     }
     if (u.pathname.startsWith('/api/v1/payments/')) {
       if (payment === 404) return jsonResponse(404, { detail: 'Payment does not exist.' });
@@ -132,19 +135,54 @@ test('createInvoice fails cleanly when LNbits is down', async () => {
 });
 
 test('isPaid sends the key server-side and maps LNbits responses', async () => {
-  let { service: s, lnbits } = service({ payment: { paid: true } });
-  assert.equal(await s.isPaid(HASH), true);
-  assert.equal(lnbits.calls[0].url, `https://bank.example/api/v1/payments/${HASH}`);
-  assert.equal(lnbits.calls[0].headers['X-Api-Key'], KEY);
+  // Issue an invoice first: status is only looked up for invoices issued here.
+  const issuedService = async (opts) => {
+    const made = service(opts);
+    await made.service.createInvoice(21);
+    return made;
+  };
 
-  ({ service: s } = service({ payment: { paid: false, status: 'success' } }));
+  let { service: s, lnbits } = await issuedService({ payment: { paid: true } });
   assert.equal(await s.isPaid(HASH), true);
-  ({ service: s } = service({ payment: { paid: false, status: 'pending' } }));
+  const statusCalls = () => lnbits.calls.filter((c) => c.url.includes('/api/v1/payments/'));
+  assert.equal(statusCalls()[0].url, `https://bank.example/api/v1/payments/${HASH}`);
+  assert.equal(statusCalls()[0].headers['X-Api-Key'], KEY);
+  // A settled invoice is remembered: LNbits is not asked again
+  assert.equal(await s.isPaid(HASH), true);
+  assert.equal(statusCalls().length, 1);
+
+  ({ service: s } = await issuedService({ payment: { paid: false, status: 'success' } }));
+  assert.equal(await s.isPaid(HASH), true);
+  ({ service: s } = await issuedService({ payment: { paid: false, status: 'pending' } }));
   assert.equal(await s.isPaid(HASH), false);
-  ({ service: s } = service({ payment: 404 }));
+  ({ service: s } = await issuedService({ payment: 404 }));
   assert.equal(await s.isPaid(HASH), false);
-  ({ service: s } = service({ payment: 500 }));
+  ({ service: s } = await issuedService({ payment: 500 }));
   await assert.rejects(s.isPaid(HASH));
+});
+
+test('payment status is only looked up for invoices this service issued', async () => {
+  let t = 0;
+  const other = 'cd'.repeat(32);
+  const { service: s, lnbits } = service({ payment: { paid: true } }, { now: () => t });
+  const statusCalls = () => lnbits.calls.filter((c) => c.url.includes('/api/v1/payments/'));
+
+  // Nothing issued yet: a paid invoice elsewhere in the wallet is not revealed
+  assert.equal(s.isIssued(HASH), false);
+  assert.equal(await s.isPaid(HASH), false);
+  assert.equal(statusCalls().length, 0);
+
+  await s.createInvoice(21);
+  assert.equal(s.isIssued(HASH), true);
+  assert.equal(s.isIssued(other), false);
+  assert.equal(await s.isPaid(other), false);
+  assert.equal(statusCalls().length, 0);
+
+  // Forgotten after an hour
+  t = 60 * 60 * 1000 + 1;
+  assert.equal(s.isIssued(HASH), false);
+  assert.equal(await s.isPaid(HASH), false);
+  assert.equal(statusCalls().length, 0);
 });
 
 test('health is ok when the lnurlp endpoint answers, unavailable otherwise', async () => {
@@ -235,6 +273,11 @@ test('router validates input and returns only what the UI needs', async () => {
       assert.equal(res.status, 400, bad);
     }
 
+    // A well-formed hash this service did not issue: 404, nothing about the wallet
+    res = await fetch(`${base}/lightning/payments/${'cd'.repeat(32)}`);
+    assert.equal(res.status, 404);
+    assert.deepEqual(await res.json(), { error: 'Unknown or expired invoice' });
+
     res = await fetch(`${base}/lightning/health`);
     assert.deepEqual(await res.json(), { lightning: 'ok' });
   });
@@ -245,10 +288,17 @@ test('router answers 503 without leaking details when LNbits is down', async () 
     let res = await fetch(`${base}/lightning/invoice`, { method: 'POST', body: JSON.stringify({ amountSats: 21 }) });
     assert.equal(res.status, 503);
     assert.deepEqual(await res.json(), { error: 'Lightning payments are temporarily unavailable' });
-    res = await fetch(`${base}/lightning/payments/${HASH}`);
-    assert.equal(res.status, 503);
     res = await fetch(`${base}/lightning/health`);
     assert.deepEqual(await res.json(), { lightning: 'unavailable' });
+  });
+
+  // Invoice issued, then LNbits fails on the status check
+  await withServer(service({ payment: 500 }).service, async (base) => {
+    let res = await fetch(`${base}/lightning/invoice`, { method: 'POST', body: JSON.stringify({ amountSats: 21 }) });
+    assert.equal(res.status, 200);
+    res = await fetch(`${base}/lightning/payments/${HASH}`);
+    assert.equal(res.status, 503);
+    assert.deepEqual(await res.json(), { error: 'Lightning payments are temporarily unavailable' });
   });
 });
 
@@ -266,8 +316,12 @@ test('router ignores a client-supplied memo', async () => {
 });
 
 test('router limits status polling per IP + hash, with Retry-After', async () => {
-  await withServer(service().service, async (base) => {
-    const otherHash = 'cd'.repeat(32);
+  const otherHash = 'cd'.repeat(32);
+  await withServer(service({ hashes: [HASH, otherHash] }).service, async (base) => {
+    for (let i = 0; i < 2; i++) {
+      const res = await fetch(`${base}/lightning/invoice`, { method: 'POST', body: JSON.stringify({ amountSats: 21 }) });
+      assert.equal(res.status, 200);
+    }
     for (let i = 0; i < 60; i++) {
       assert.equal((await fetch(`${base}/lightning/payments/${HASH}`)).status, 200);
     }
@@ -277,6 +331,8 @@ test('router limits status polling per IP + hash, with Retry-After', async () =>
     assert.ok(retryAfter >= 1 && retryAfter <= 60, String(retryAfter));
     // Another payer behind the same IP (carrier NAT) can still poll their own invoice
     assert.equal((await fetch(`${base}/lightning/payments/${otherHash}`)).status, 200);
+    // Unknown hashes are refused without being counted
+    assert.equal((await fetch(`${base}/lightning/payments/${'ef'.repeat(32)}`)).status, 404);
   });
 });
 

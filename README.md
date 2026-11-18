@@ -64,7 +64,7 @@ The LNbits key is read by the score service at runtime and is never part of the 
 
 1. The game asks the score service for an invoice (`POST /api/lightning/invoice`); the service resolves the Lightning address (LNURL-pay) server-side.
 2. The player pays with any Lightning wallet.
-3. The game polls `GET /api/lightning/payments/<hash>`, which checks LNbits with the invoice key and returns only `{ paid }`.
+3. The game polls `GET /api/lightning/payments/<hash>`, which checks LNbits with the invoice key and returns only `{ paid }`. It answers only for invoices the service issued in the last hour (anything else is a 404), so it cannot be used to look up other payments in the wallet.
 4. The match starts.
 
 `GET /api/lightning/health` reports whether LNbits is reachable (cached 60s). While it says `unavailable` the game shows "Lightning payments are temporarily unavailable" and disables the pay buttons; free play still works.
