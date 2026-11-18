@@ -58,9 +58,9 @@ const HIGH_SCORE_KEY = 'exploding-sats-high-score';
 const RECIPIENT_LIGHTNING_ADDRESS = import.meta.env.VITE_LIGHTNING_ADDRESS || 'space.zappers@bank.weeksfamily.me';
 const LIGHTNING_UNAVAILABLE_MESSAGE = 'Lightning payments are temporarily unavailable. Please try again a little later.';
 
-// Keyboard, matching the C64 original: a 3x3 letter grid is the joystick and SHIFT is fire.
+// Keyboard: a 3x3 letter grid on each side of the keyboard is the joystick and SHIFT is fire.
 // Player 1: Q W E / A D / Z X C (or the arrow keys), fire = left Shift, Space or Ctrl.
-// Player 2: P [ ] / L ' / , . / (the C64's P @ * / L ; / , . /), fire = right Shift or Enter.
+// Player 2: P [ ] / L ' / , . /, fire = right Shift or Enter.
 // Keyed by KeyboardEvent.code so the layout is the same whatever the keyboard language.
 type KeyRole = 'up' | 'down' | 'left' | 'right' | 'upLeft' | 'upRight' | 'downLeft' | 'downRight' | 'fire';
 const P1_KEYS: Record<string, KeyRole> = {
