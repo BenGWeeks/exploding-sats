@@ -28,6 +28,10 @@ export const POINTS_TO_WIN = 2; // full yin-yangs
 export const BOUTS_PER_GRADE = 2;
 export const SCENE_COUNT = 4;
 export const TWO_PLAYER_BOUTS = 4;
+/** After a point the fallen fighter lies only this many frames before getting up */
+export const KNOCKDOWN_LIE_FRAMES = 4;
+/** Frames to walk back to the marks after a point; the bow is only at the start of a bout */
+export const WALK_BACK_FRAMES = 24;
 export const FRAME_RATE = 60;
 
 export const SCORE_TIME_BONUS_PER_SECOND = 100;
@@ -205,7 +209,7 @@ export interface Fighter {
 export type Phase =
   | 'intro'      // bow before the bout
   | 'fighting'
-  | 'point'      // knockdown after a scored point, then reset and bow
+  | 'point'      // knockdown after a scored point, then walk back to the marks
   | 'bout_over'  // judge announces the result; time bonus counts down
   | 'bull'       // bonus round
   | 'bull_over'
@@ -242,6 +246,8 @@ export interface GameState {
   timeLeft: number; // seconds, fractional
   /** time bonus still to be paid out during bout_over */
   bonusSecondsLeft: number;
+  /** frames left of the walk back to the marks after a point (0 = not walking back) */
+  walkBack: number;
   twoPlayer: boolean;
   demo: boolean;
   scene: number;
@@ -296,6 +302,7 @@ export function createInitialState(options: GameOptions = {}): GameState {
     boutsWon: 0,
     timeLeft: BOUT_SECONDS,
     bonusSecondsLeft: 0,
+    walkBack: 0,
     twoPlayer: !!options.twoPlayer,
     demo,
     scene: 0,
@@ -372,6 +379,32 @@ function bowBoth(state: GameState) {
   a.hitLanded = b.hitLanded = false;
   state.phase = 'intro';
   state.phaseTimer = MOVES.bow.frames;
+}
+
+/** After a point: face the opponent and head back to the marks */
+function startWalkBack(state: GameState) {
+  const [a, b] = state.fighters;
+  a.facing = 1; b.facing = -1;
+  state.fighters.forEach((f, i) => {
+    const target = i === 0 ? START_X_P1 : START_X_P2;
+    const ahead = (target - f.x) * f.facing;
+    setMove(f, Math.abs(ahead) < 1 ? 'stand' : ahead > 0 ? 'walk_forward' : 'walk_back', state.events, i as 0 | 1);
+  });
+  state.walkBack = WALK_BACK_FRAMES;
+}
+
+/** One frame of the walk back; fighting resumes on arrival */
+function walkToMarks(state: GameState) {
+  state.fighters.forEach((f, i) => {
+    const target = i === 0 ? START_X_P1 : START_X_P2;
+    f.x += (target - f.x) / state.walkBack;
+    f.frame = (f.frame + 1) % MOVES[f.move].frames;
+  });
+  state.walkBack--;
+  if (state.walkBack === 0) {
+    resetPositions(state);
+    beginFighting(state);
+  }
 }
 
 function startBout(state: GameState) {
@@ -771,16 +804,23 @@ export function updateGame(state: GameState, inputs: [FighterInput, FighterInput
     }
 
     case 'point': {
+      if (state.walkBack > 0) {
+        walkToMarks(state);
+        break;
+      }
       advanceFighter(state, 0);
       advanceFighter(state, 1);
       if (p1.move === 'lying' && p1.frame === 1 || p2.move === 'lying' && p2.frame === 1) {
         state.events.push({ type: 'thud' });
       }
+      for (const [i, f] of state.fighters.entries()) {
+        if (f.move === 'lying' && f.frame >= KNOCKDOWN_LIE_FRAMES) setMove(f, 'getup', state.events, i as 0 | 1);
+      }
       state.phaseTimer--;
       if (state.phaseTimer <= 0 && p1.airY === 0 && p2.airY === 0 && !isDown(p1.move) && !isDown(p2.move)) {
         if (p1.points >= POINTS_TO_WIN) endBout(state, 0);
         else if (p2.points >= POINTS_TO_WIN) endBout(state, 1);
-        else bowBoth(state); // back to the marks, bow, fight on
+        else startWalkBack(state); // back to the marks and fight on (no bow mid-bout)
       }
       break;
     }

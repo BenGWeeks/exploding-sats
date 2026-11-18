@@ -145,7 +145,7 @@ describe('bout flow', () => {
     expect(sweepState.fighters[0].points).toBeGreaterThan(0);
   });
 
-  it('after a knockdown both fighters return to their marks and bow', () => {
+  it('after a knockdown both fighters walk back to their marks and fight on', () => {
     const state = skipIntro(createInitialState({ seed: 1, twoPlayer: true }));
     state.fighters[0].x = 150;
     state.fighters[1].x = 150 + MOVES.jab_punch.strike!.x + 4; // slightly off centre: half point
@@ -153,10 +153,10 @@ describe('bout flow', () => {
     expect(state.phase).toBe('point');
     let guard = 0;
     while (state.phase === 'point' && guard++ < 400) updateGame(state, IDLE);
-    expect(state.phase).toBe('intro');
+    expect(state.phase).toBe('fighting');
     expect(state.fighters[0].x).toBe(START_X_P1);
     expect(state.fighters[1].x).toBe(START_X_P2);
-    expect(state.fighters[0].move).toBe('bow');
+    expect(state.fighters[0].move).toBe('stand');
   });
 
   it('two full points win the bout and the time bonus pays 100 a second', () => {
