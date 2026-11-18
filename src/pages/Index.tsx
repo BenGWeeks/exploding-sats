@@ -3,8 +3,8 @@ import { Navigate } from 'react-router-dom';
 
 const Index = () => {
   useSeoMeta({
-    title: 'Way of the Exploding Sats - Bitcoin Karate Game',
-    description: 'A faithful tribute to the 1985 karate classic Way of the Exploding Fist. Pay 21 sats to play. Publish your high scores to the decentralized Nostr leaderboard.',
+    title: 'Exploding Sats - Bitcoin Karate Game',
+    description: 'A retro one-on-one karate game where bouts are won on points, paid for with Bitcoin Lightning. Pay 21 sats to play and publish your high scores to the decentralized Nostr leaderboard.',
   });
 
   // Redirect to game page

@@ -1,7 +1,7 @@
 {
-  "name": "Way of the Exploding Sats",
+  "name": "Exploding Sats",
   "short_name": "Exploding Sats",
-  "description": "A faithful tribute to the 1985 karate classic Way of the Exploding Fist. Pay 21 sats to play. Publish your high scores to the decentralized Nostr leaderboard.",
+  "description": "A retro one-on-one karate game where bouts are won on points, paid for with Bitcoin Lightning. Pay 21 sats to play and publish your high scores to the decentralized Nostr leaderboard.",
   "start_url": "/",
   "display": "fullscreen",
   "orientation": "landscape",

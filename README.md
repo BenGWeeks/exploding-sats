@@ -1,20 +1,20 @@
-<p align="center"><img src="docs/logo.png" alt="Way of the Exploding Sats" width="720"></p>
+<p align="center"><img src="docs/logo.png" alt="Exploding Sats" width="720"></p>
 
-A faithful browser tribute to the 1985 C64 karate classic **The Way of the Exploding Fist**, powered by Bitcoin Lightning and Nostr.
+**Exploding Sats** is a retro one-on-one karate game for the browser where bouts are won on points, paid for with Bitcoin Lightning and ranked on Nostr.
 
 Pay 21 sats to fight. Publish your grade and score to the decentralized leaderboard.
 
-![Way of the Exploding Sats gameplay](docs/screenshot.png)
+![Exploding Sats gameplay](docs/screenshot.png)
 
 ## Features
 
-- **The original control chart** - 8-way joystick plus one fire button. Direction alone walks, jumps, crouches, punches and somersaults; direction with fire kicks: flying kick, high/mid/jab kick, forward and backward sweep, roundhouse (release early for an about-face) and high back kick. All directions are facing-relative, just like the C64.
-- **Original scoring** - every landed blow knocks the opponent down for a full yin-yang (clean hit) or half a yin-yang (poor hit). First to two full points wins the bout. Remaining seconds on the 30 second clock pay 100 points each.
+- **Joystick controls** - 8-way joystick plus one fire button. Direction alone walks, jumps, crouches, punches and somersaults; direction with fire kicks: flying kick, high/mid/jab kick, forward and backward sweep, roundhouse (release early for an about-face) and high back kick. All directions are facing-relative.
+- **Point scoring** - every landed blow knocks the opponent down for a full yin-yang (clean hit) or half a yin-yang (poor hit). First to two full points wins the bout. Remaining seconds on the 30 second clock pay 100 points each.
 - **Grading** - Novice, then 1st to 10th Dan. Each grade is two bouts; win both and you are promoted to a new arena and a sharper opponent. Lose a bout and the match is over.
 - **Four arenas** - pagoda and torii gate under Fuji, the seaside, the dojo, and the Great Buddha, with the seated sensei judging from the sidelines.
 - **Bull bonus round** - after the fourth arena a bull charges in. Somersault over it or stop it with a low punch on the nose.
 - **Two-player mode** - four bouts, highest total score wins.
-- **Attract mode** - the game boots into a CPU vs CPU demo, as the original did.
+- **Attract mode** - the game boots into a CPU vs CPU demo.
 - **Lightning payments** - 21 sats per match via any Lightning wallet (NWC, WebLN or invoice).
 - **Nostr leaderboard** - scores signed by the game key and published as Gamestr events.
 - **Free play mode** - one minute to try the moves (scores not publishable).
@@ -22,11 +22,11 @@ Pay 21 sats to fight. Publish your grade and score to the decentralized leaderbo
 ## How to Play
 
 1. **Pay to fight** - click "Pay 21 sats to fight" and pay with your Lightning wallet.
-2. **Move** - the original C64 keys: `Q W E / A D / Z X C` are the eight joystick directions and left `Shift` is fire (arrow keys and `Space` also work). Gamepads work (stick or D-pad plus any button). On touch devices a virtual joystick and fire button appear.
+2. **Move** - a 3x3 letter grid: `Q W E / A D / Z X C` are the eight joystick directions and left `Shift` is fire (arrow keys and `Space` also work). Gamepads work (stick or D-pad plus any button). On touch devices a virtual joystick and fire button appear.
 3. **Fight** - see the MOVES dialog in-game for the full chart. Sweeps can't be blocked, so jump them. Duck the flying kick. Hold back to block.
 4. **Compete** - login with Nostr and save your score to the leaderboard.
 
-Player 2 uses the original's second layout: `P [ ] / L ' / , . /` with right `Shift` (or `Enter`) as fire (the C64 keys were `P @ * / L ; / , . /`).
+Player 2 uses `P [ ] / L ' / , . /` with right `Shift` (or `Enter`) as fire.
 
 ## Tech Stack
 
@@ -101,8 +101,8 @@ On black-panther the container is defined in the apps-stack docker-compose (see 
 │   │   └── ui/                    # shadcn/ui components
 │   ├── lib/
 │   │   ├── fistEngine.ts          # Rules, moves, AI, scoring, bull round
-│   │   ├── fighterSprites.ts      # The 44 original fighter poses (BBC Micro data)
-│   │   ├── fighterAnimation.ts    # Per-move sprite sequences from the original frame tables
+│   │   ├── fighterSprites.ts      # Fighter pose data
+│   │   ├── fighterAnimation.ts    # Per-move sprite sequences
 │   │   ├── fistRenderer.ts        # Arenas, sensei, fighters, bull, HUD
 │   │   └── fistAudio.ts           # Kiai, crack, thud, SID-style music
 │   └── hooks/
@@ -120,7 +120,5 @@ node scripts/render-branding.js
 ```
 
 ## Credits
-
-The Way of the Exploding Fist (1985) was designed by Gregg Barnett at Beam Software and published by Melbourne House; the BBC Micro conversion was by Michael Simpson. The fighter sprites are decoded from the BBC Micro version using the [Level 7 disassembly](https://www.level7.org.uk/miscellany/the-way-of-the-exploding-fist-disassembly.txt) and remain the copyright of their original creators. This is an unaffiliated, non-commercial fan tribute.
 
 Built with [MKStack](https://soapbox.pub/mkstack).

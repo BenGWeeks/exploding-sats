@@ -1,6 +1,6 @@
-# Way of the Exploding Sats - Nostr Event Specification
+# Exploding Sats - Nostr Event Specification
 
-Way of the Exploding Sats uses the [Gamestr](https://gamestr.io) protocol for decentralized leaderboards.
+Exploding Sats uses the [Gamestr](https://gamestr.io) protocol for decentralized leaderboards.
 
 ## Score Events (Kind 30762)
 
