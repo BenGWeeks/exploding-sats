@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { Pause } from 'lucide-react';
 import type { JoystickDirection } from '@/lib/fistEngine';
+import { stickDirection } from '@/lib/joystick';
 
 interface JoystickControlsProps {
   onDirection: (direction: JoystickDirection) => void;
@@ -9,7 +10,7 @@ interface JoystickControlsProps {
   sideMargin?: number;
 }
 
-const DEAD_ZONE = 14; // px from centre before a direction registers
+const DEAD_ZONE = 14; // radius in px from centre before a direction registers
 
 /**
  * Touch replacement for the original 8-way joystick + fire button.
@@ -40,11 +41,7 @@ export function JoystickControls({ onDirection, onFire, onPause, sideMargin = 0 
     }
     setKnob({ x: dx, y: dy });
 
-    const direction: JoystickDirection = {
-      x: Math.abs(dx) < DEAD_ZONE ? 0 : dx > 0 ? 1 : -1,
-      y: Math.abs(dy) < DEAD_ZONE ? 0 : dy > 0 ? 1 : -1,
-    };
-    onDirection(direction);
+    onDirection(stickDirection(dx, dy, DEAD_ZONE));
   }, [onDirection]);
 
   const release = useCallback(() => {
